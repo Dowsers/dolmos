@@ -1,3 +1,4 @@
+
 # SPDX-License-Identifier: AGPL-3.0
 
 import itertools
@@ -29,6 +30,7 @@ from z3 import (
     ArrayRef,
     BitVec,
     BitVecRef,
+    BitVecVal,
     BoolRef,
     BoolVal,
     CheckSatResult,
@@ -71,6 +73,8 @@ from halmos.contract import (
     OP_AND,
     OP_BALANCE,
     OP_BASEFEE,
+    OP_BLOBHASH,
+    OP_BLOBBASEFEE,
     OP_BLOCKHASH,
     OP_BYTE,
     OP_CALL,
@@ -130,6 +134,7 @@ from halmos.contract import (
     OP_RETURNDATASIZE,
     OP_REVERT,
     OP_SAR,
+    OP_CLZ,
     OP_SDIV,
     OP_SELFBALANCE,
     OP_SGT,
@@ -710,6 +715,8 @@ class Block:
     gaslimit: BitVecRef
     number: BitVecRef
     timestamp: BitVecRef
+    blobbasefee: BitVecRef  # EIP-4844 / Cancun — opcode 0x4A
+    blobhashes: list        # EIP-4844 / Cancun — opcode 0x49, list of BitVecRef (256-bit)
 
     def __init__(self, **kwargs) -> None:
         self.basefee = kwargs["basefee"]
@@ -719,6 +726,8 @@ class Block:
         self.gaslimit = kwargs["gaslimit"]
         self.number = kwargs["number"]
         self.timestamp = kwargs["timestamp"]
+        self.blobbasefee = kwargs.get("blobbasefee", ZERO)  # 0 par défaut
+        self.blobhashes = kwargs.get("blobhashes", [])      # pas de blobs par défaut
 
         assert_address(self.coinbase)
 
@@ -3531,6 +3540,30 @@ class SEVM:
                 elif opcode == OP_BASEFEE:
                     state.push_any(ex.block.basefee)
 
+                elif opcode == OP_BLOBBASEFEE:
+                    # EIP-4844 / Cancun (0x4A): blob base fee du bloc courant.
+                    state.push_any(ex.block.blobbasefee)
+
+                elif opcode == OP_BLOBHASH:
+                    # EIP-4844 / Cancun (0x49): versioned hash du blob a l'index i.
+                    # L'index peut etre symbolique : on construit un If-tree sur la
+                    # liste des blobs. Retourne 0 si hors range ou liste vide.
+                    index = state.popi()
+                    blobhashes = ex.block.blobhashes
+                    if not blobhashes:
+                        # Pas de blobs dans cette tx -> toujours 0
+                        state.push_any(ZERO)
+                    else:
+                        # Construire: If(i==0, h0, If(i==1, h1, ..., 0))
+                        result = ZERO
+                        for i in range(len(blobhashes) - 1, -1, -1):
+                            result = If(
+                                index.as_z3() == BitVecVal(i, 256),
+                                blobhashes[i],
+                                result,
+                            )
+                        state.push_any(result)
+
                 elif opcode == OP_PC:
                     state.push_any(ex.pc)
 
@@ -3577,6 +3610,11 @@ class SEVM:
                     w1 = state.popi()
                     w2 = state.popi()
                     state.push(w2.ashr(w1))  # bvashr
+
+                elif opcode == OP_CLZ:
+                    # EIP-7939 / Fusaka (0x1E): count leading zeros.
+                    w1 = state.popi()
+                    state.push(w1.clz())
 
                 elif opcode == OP_ADDMOD:
                     w1 = state.popi()

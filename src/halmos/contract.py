@@ -1,3 +1,4 @@
+
 # SPDX-License-Identifier: AGPL-3.0
 
 from collections import defaultdict
@@ -54,6 +55,7 @@ OP_BYTE = 0x1A
 OP_SHL = 0x1B
 OP_SHR = 0x1C
 OP_SAR = 0x1D
+OP_CLZ = 0x1E
 OP_SHA3 = 0x20
 OP_ADDRESS = 0x30
 OP_BALANCE = 0x31
@@ -80,6 +82,8 @@ OP_GASLIMIT = 0x45
 OP_CHAINID = 0x46
 OP_SELFBALANCE = 0x47
 OP_BASEFEE = 0x48
+OP_BLOBHASH = 0x49
+OP_BLOBBASEFEE = 0x4A
 OP_POP = 0x50
 OP_MLOAD = 0x51
 OP_MSTORE = 0x52

@@ -1,3 +1,4 @@
+
 # SPDX-License-Identifier: AGPL-3.0
 
 from __future__ import annotations
@@ -691,6 +692,7 @@ class EVM:
     SHL = 0x1B
     SHR = 0x1C
     SAR = 0x1D
+    CLZ = 0x1E
     SHA3 = 0x20
     ADDRESS = 0x30
     BALANCE = 0x31
@@ -717,6 +719,8 @@ class EVM:
     CHAINID = 0x46
     SELFBALANCE = 0x47
     BASEFEE = 0x48
+    BLOBHASH = 0x49
+    BLOBBASEFEE = 0x4A
     POP = 0x50
     MLOAD = 0x51
     MSTORE = 0x52
@@ -841,6 +845,7 @@ str_opcode: dict[int, str] = {
     EVM.SHL: "SHL",
     EVM.SHR: "SHR",
     EVM.SAR: "SAR",
+    EVM.CLZ: "CLZ",
     EVM.SHA3: "SHA3",
     EVM.ADDRESS: "ADDRESS",
     EVM.BALANCE: "BALANCE",
@@ -867,6 +872,8 @@ str_opcode: dict[int, str] = {
     EVM.CHAINID: "CHAINID",
     EVM.SELFBALANCE: "SELFBALANCE",
     EVM.BASEFEE: "BASEFEE",
+    EVM.BLOBHASH: "BLOBHASH",
+    EVM.BLOBBASEFEE: "BLOBBASEFEE",
     EVM.POP: "POP",
     EVM.MCOPY: "MCOPY",
     EVM.MLOAD: "MLOAD",

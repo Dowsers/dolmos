@@ -1,3 +1,4 @@
+
 # SPDX-License-Identifier: AGPL-3.0
 
 from typing import Any, TypeAlias
@@ -842,6 +843,51 @@ class HalmosBitVec:
             return self
 
         return HalmosBitVec(self.as_z3() >> shift.value, size=self.size)
+
+    def clz(self) -> "HalmosBitVec":
+        """
+        Count Leading Zeros — EVM opcode CLZ (0x1E, EIP-7939 / Fusaka).
+
+        Stack semantics: [x] -> [clz(x)]
+          clz(0)      == size  (256 for a standard EVM word)
+          clz(1)      == 255
+          clz(2^255)  == 0
+
+        Concrete: O(1) via int.bit_length().
+        Symbolic: binary-search tree of 8 nested If() nodes (one per
+        bit-doubling level: 128/64/32/16/8/4/2/1), O(log n) Z3 terms.
+
+        Algorithm: at each level `shift`, inspect the top `shift` bits of cur.
+          - If zero: add `shift` to acc, slide window left to expose next band.
+          - If nonzero: isolate this band for the next level.
+        """
+        size = self._size  # 256 in standard EVM context
+
+        # --- concrete fast path ---
+        if self.is_concrete:
+            v = self._value
+            return HalmosBitVec(size if v == 0 else size - v.bit_length(), size=size)
+
+        # --- symbolic path: binary search over bit-levels ---
+        x = self.as_z3()
+        zero = BitVecVal(0, size)
+
+        acc = zero
+        cur = x
+
+        for shift in (128, 64, 32, 16, 8, 4, 2, 1):
+            top_bits = LShR(cur, BitVecVal(size - shift, size))
+            top_zero = top_bits == zero
+            acc = If(top_zero, acc + BitVecVal(shift, size), acc)
+            cur = If(
+                top_zero,
+                cur << BitVecVal(shift, size),              # expose next band at MSB
+                top_bits << BitVecVal(size - shift, size),  # keep current band aligned
+            )
+
+        # x == 0 -> every bit is a leading zero, result is `size`.
+        result = If(x == zero, BitVecVal(size, size), acc)
+        return HalmosBitVec(result, size=size)
 
     def bitwise_not(self) -> BV:
         if self.is_concrete:
