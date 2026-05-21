@@ -3,7 +3,7 @@ src = 'src'
 out = 'out'
 libs = ['../lib', 'lib']
 
-evm_version = 'cancun'
+evm_version = 'osaka'
 
 optimizer = true
 
