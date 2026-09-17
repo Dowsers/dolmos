@@ -958,6 +958,21 @@ class hevm_cheat_code:
     # bytes4(keccak256("deal(address,uint256)"))
     deal_sig: int = 0xC88A5E6D
 
+    # bytes4(keccak256("getNonce(address)"))
+    get_nonce_sig: int = 0x2D0335AB
+
+    # bytes4(keccak256("getNonce((address,uint256,uint256,uint256))"))
+    get_nonce_wallet_sig: int = 0xA5748AAD
+
+    # bytes4(keccak256("setNonce(address,uint64)"))
+    set_nonce_sig: int = 0xF8E18B57
+
+    # bytes4(keccak256("setNonceUnsafe(address,uint64)"))
+    set_nonce_unsafe_sig: int = 0x9B67B21C
+
+    # bytes4(keccak256("resetNonce(address)"))
+    reset_nonce_sig: int = 0x1C72346D
+
     # bytes4(keccak256("store(address,bytes32,bytes32)"))
     store_sig: int = 0x70CA10BB
 
@@ -1203,6 +1218,61 @@ class hevm_cheat_code:
             who = uint160(arg.get_word(4)).as_z3()
             amount = uint256(arg.get_word(36)).as_z3()
             ex.balance_update(who, amount)
+            return ret
+
+        # vm.getNonce(address) / vm.getNonce(Wallet)
+        elif funsig in (
+            hevm_cheat_code.get_nonce_sig,
+            hevm_cheat_code.get_nonce_wallet_sig,
+        ):
+            # Wallet is a static struct, its first field is the address
+            who = uint160(arg.get_word(4)).as_z3()
+            return ByteVec(con(ex.nonce_of(who)))
+
+        # vm.setNonce(address,uint64) / vm.setNonceUnsafe(address,uint64)
+        elif funsig in (
+            hevm_cheat_code.set_nonce_sig,
+            hevm_cheat_code.set_nonce_unsafe_sig,
+        ):
+            unsafe = funsig == hevm_cheat_code.set_nonce_unsafe_sig
+            name = "setNonceUnsafe" if unsafe else "setNonce"
+
+            who = uint160(arg.get_word(4))
+            if not who.is_concrete:
+                error_msg = f"vm.{name}(address who, uint64 nonce) must have concrete argument `who` but received {who}"
+                raise HalmosException(error_msg)
+
+            nonce = int_of(arg.get_word(36), f"symbolic nonce in vm.{name}()")
+            if not (0 <= nonce < 2**64):
+                raise HalmosException(f"vm.{name}(): nonce out of uint64 range: {nonce}")
+
+            who = who.as_z3()
+            current = ex.nonce_of(who)
+
+            # vm.setNonce() can only increase the nonce, as in foundry
+            if not unsafe and nonce < current:
+                error_msg = (
+                    f"vm.setNonce(): the new nonce ({nonce}) must be greater than or equal to "
+                    f"the current nonce ({current}) of {hexify(who)}; "
+                    f"use vm.setNonceUnsafe() to decrease it"
+                )
+                raise HalmosException(error_msg)
+
+            ex.set_nonce(who, nonce)
+            return ret
+
+        # vm.resetNonce(address)
+        elif funsig == hevm_cheat_code.reset_nonce_sig:
+            who = uint160(arg.get_word(4))
+            if not who.is_concrete:
+                error_msg = f"vm.resetNonce(address who) must have concrete argument `who` but received {who}"
+                raise HalmosException(error_msg)
+
+            who = who.as_z3()
+
+            # 0 for EOAs, 1 for contract accounts
+            code = ex.code.get(who)
+            ex.set_nonce(who, 1 if code is not None and len(code) > 0 else 0)
             return ret
 
         # vm.store(address,bytes32,bytes32)
