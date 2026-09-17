@@ -1,4 +1,7 @@
-# Halmos
+# Dolmos
+
+Fork of a16z/halmos (Readme will be modified later to reflect changes)
+
 
 [![PyPI - Version](https://img.shields.io/pypi/v/halmos)](https://pypi.org/project/halmos)
 [![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fa16z%2Fhalmos%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](https://github.com/a16z/halmos)
