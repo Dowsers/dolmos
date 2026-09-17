@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools_scm]
 
 [project]
-name = "halmos"
-description = "A symbolic testing tool for EVM smart contracts"
+name = "dolmos"
+description = "A symbolic testing tool for EVM smart contracts (Dowsers fork of halmos)"
 readme = "README.md"
 authors = [
     { name="a16z crypto" },
@@ -39,7 +39,8 @@ dynamic = ["version"]
 dolmos = "halmos.__main__:main"
 
 [project.urls]
-"Homepage" = "https://github.com/a16z/halmos"
+"Homepage" = "https://github.com/HugoDowsers/dolmos"
+"Upstream" = "https://github.com/a16z/halmos"
 
 # development dependencies, can be installed with
 #   uv sync --extra dev

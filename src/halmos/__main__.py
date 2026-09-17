@@ -1732,8 +1732,8 @@ def _main(_args=None) -> MainResult:
     args = load_config(_args)
 
     if args.version:
-        # report the name the command was invoked with, the distribution is still halmos
-        print(f"{os.path.basename(sys.argv[0]) or 'dolmos'} {metadata.version('halmos')}")
+        # the distribution is dolmos, the importable package is still halmos
+        print(f"{os.path.basename(sys.argv[0]) or 'dolmos'} {metadata.version('dolmos')}")
         return MainResult(0)
 
     init_env(args.root)
