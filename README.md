@@ -1,105 +1,164 @@
 # Dolmos
 
-Fork of a16z/halmos (Readme will be modified later to reflect changes)
+[![License](https://img.shields.io/github/license/HugoDowsers/dolmos)](LICENSE)
+[![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2FHugoDowsers%2Fdolmos%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](pyproject.toml)
+[![upstream](https://img.shields.io/badge/fork%20of-a16z%2Fhalmos-blue)](https://github.com/a16z/halmos)
 
+Dolmos is the [Dowsers](https://github.com/HugoDowsers) fork of
+[a16z/halmos](https://github.com/a16z/halmos), a _symbolic testing_ tool for EVM
+smart contracts driven by Foundry tests.
 
-[![PyPI - Version](https://img.shields.io/pypi/v/halmos)](https://pypi.org/project/halmos)
-[![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2Fa16z%2Fhalmos%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](https://github.com/a16z/halmos)
-[![License](https://img.shields.io/github/license/a16z/halmos)](https://github.com/a16z/halmos/blob/main/LICENSE)
-[![chat](https://img.shields.io/badge/chat-telegram-blue)](https://t.me/+4UhzHduai3MzZmUx)
+The fork exists to carry fixes and EVM coverage we need for audit work, ahead of
+(or instead of) upstream. Everything upstream does, dolmos does; this README only
+documents what differs. For the tool itself, read the upstream
+[getting started guide](docs/getting-started.md) and the
+[examples](examples/README.md) — they apply unchanged, modulo the command name.
 
-[**Install**](https://github.com/a16z/halmos?tab=readme-ov-file#installation)
-| [**Getting Started**](https://github.com/a16z/halmos/blob/main/docs/getting-started.md)
-| [**Examples**](https://github.com/a16z/halmos/blob/main/examples/README.md)
-| [**FAQ**](https://github.com/a16z/halmos/wiki/FAQ)
-| [**Chat**][chat]
-| [**awesome-halmos**](https://github.com/redtrama/awesome-halmos)
+The command is `dolmos`. The Python package is still named `halmos`, so
+`import halmos` and rebases on upstream keep working.
 
-Halmos is a _symbolic testing_ tool for EVM smart contracts. A Solidity/Foundry frontend is currently offered by default, with plans to provide support for other languages, such as Vyper and Huff, in the future.
+## What this fork adds
 
-You can read more in our post: "_[Symbolic testing with Halmos: Leveraging existing tests for formal verification][post]_."
+**CREATE address derivation and account nonces.** Upstream assigns CREATE
+addresses from a counter and does not model nonces at all, so a contract that
+predicts its own deployment address disagrees with the executor. Every CREATE3
+library breaks that way ([a16z/halmos#217](https://github.com/a16z/halmos/issues/217)):
+all paths revert and the test reports `paths: 0`. Dolmos tracks nonces (1 for a
+newly created account per EIP-161, incremented by CREATE and CREATE2 even when
+the creation fails) and derives the address from `keccak256(rlp([sender, nonce]))`,
+mapped to a magic address exactly as CREATE2 already was. Both sides of the
+prediction then agree.
 
-Join the [Halmos Telegram Group][chat] for any inquiries or further discussions.
+**Nonce cheatcodes.** `vm.getNonce`, `vm.setNonce`, `vm.setNonceUnsafe` and
+`vm.resetNonce`, with foundry's semantics: `setNonce` only raises a nonce,
+`resetNonce` gives 0 to EOAs and 1 to accounts with code.
 
-[post]: https://a16zcrypto.com/symbolic-testing-with-halmos-leveraging-existing-tests-for-formal-verification/
-[chat]: https://t.me/+4UhzHduai3MzZmUx
+**Fusaka / Cancun opcodes.** `CLZ` (EIP-7939), with a concrete fast path and a
+logarithmic symbolic encoding, plus `BLOBHASH` and `BLOBBASEFEE` (EIP-4844).
+
+**CLI.** The command is `dolmos`; `halmos` is no longer installed. A project
+config file may be named `dolmos.toml` (read before `halmos.toml`), `--help` and
+`--version` report the name the command was invoked with, and `-test` is a short
+alias for `--match-test` (`dolmos -test setNonce`).
+
+## Not available in this fork
+
+These exist upstream and are **not** provided here yet:
+
+| | status |
+|---|---|
+| PyPI package (`pip install dolmos`) | not published — install from source |
+| `uv tool install dolmos` | not available — depends on the PyPI package |
+| Docker image (`ghcr.io/...`) | not built — no published image |
+| Prebuilt release binaries | none |
+| CI workflows | inherited from upstream and currently broken on this fork, since they invoke the `halmos` command and the a16z docker image |
+
+Until then, install from source as described below. If you want the packaged
+experience today, use upstream halmos instead — the two can coexist in the same
+environment, they no longer share a command name.
 
 ## Installation
 
-### ⭐ Using `uv` (recommended for most users)
+Requires Python ≥ 3.11 and [Foundry](https://getfoundry.sh).
 
 ```sh
-# install uv if you don't have it already
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# install the latest version of halmos for the current user and add it to PATH
-uv tool install --python 3.12 halmos
-
-# or, install the development version from the repository
-# uv tool install --python 3.12 git+https://github.com/a16z/halmos
-
-# after installing, you can update halmos to the latest version with:
-uv tool upgrade halmos
-```
-
-### Using `docker`
-
-You can download a pre-built Docker image that contains python, halmos, its dependencies, foundry, solvers, etc.:
-
-```sh
-docker pull ghcr.io/a16z/halmos:latest
-```
-
-### Using `pip` (for advanced users)
-
-Note: this is not recommended because of the extra work required to manage the python version and the virtual environment. But if you know what you are doing, and need the extra control, you can do it like this:
-
-```sh
-# make sure you have a suitable python version installed, e.g.:
-python3.12 --version
-
-# create and activate a virtual environment with an explicit python version
+git clone https://github.com/HugoDowsers/dolmos.git
+cd dolmos
 python3.12 -m venv .venv && source .venv/bin/activate
-
-# install the latest version of halmos
-pip install halmos
-
-# or, install the development version from the repository
-pip install git+https://github.com/a16z/halmos
+pip install -e .
+dolmos --version
 ```
+
+Development install, with the test and lint dependencies:
+
+```sh
+pip install -e ".[dev]"
+pre-commit install
+```
+
+If a `halmos` command lingers in your `PATH` after installing, it comes from a
+separate installation (typically a `pip install --user` one). Check with
+`type -a halmos`, and `python -c "import halmos, os; print(os.path.dirname(halmos.__file__))"`
+to confirm which source tree is actually being imported.
 
 ## Usage
 
 ```sh
-cd /path/to/src
-halmos
+cd /path/to/foundry/project
+forge build
+dolmos
 ```
-
-For more details:
 
 ```sh
-halmos --help
+dolmos --help
+dolmos -test <regex>          # alias for --match-test
+dolmos --match-contract <regex>
 ```
 
-Alternatively, you can run the latest halmos Docker image available at [ghcr.io/a16z/halmos](https://ghcr.io/a16z/halmos):
+Options can be set per project in `dolmos.toml` at the project root, with the
+same format as upstream's `halmos.toml`:
+
+```toml
+[global]
+solver-timeout-assertion = 10000
+```
+
+## Tests
+
+The regression suite lives in `tests/regression` and runs with both forge (real
+EVM) and dolmos (symbolic):
 
 ```sh
-cd /path/to/src
-
-# mount '.' under /workspace in the container
-docker run -v .:/workspace ghcr.io/a16z/halmos:latest
+cd tests/regression
+forge build
+dolmos
 ```
 
-## Getting Started
+Two notes on the toolchain. The suite sets `evm_version = 'osaka'` because of
+the CLZ tests, and `test/OpCodesCLZ.sol` needs a solc recent enough to accept
+`clz()` in assembly — an older compiler fails with `Function "clz" not found`.
+And `test/Invalid.t.sol`, inherited from upstream, requires solc `^0.5.2`; if
+that version is unavailable, `forge build` stops there.
 
-Refer to the [getting started guide](docs/getting-started.md) and the [examples](examples/README.md) directory.
+## Contributing
 
-## Contributing / Developing
+Fixes that are not specific to Dowsers should go upstream: branch off
+`upstream/main`, keep the branch free of any fork-specific change, and open the
+pull request against
+[a16z/halmos](https://github.com/a16z/halmos). The CREATE3 work above is written
+that way and is meant to be proposed.
 
-Refer to the [contributing guidelines](CONTRIBUTING.md), and explore the list of issues labeled ["good first issue" or "help wanted."][issues]
+See the upstream [contributing guidelines](CONTRIBUTING.md) for style, tests and
+commit conventions.
 
-[issues]: https://github.com/a16z/halmos/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22%2C%22help+wanted%22
+## Roadmap
+
+Work in progress, not merged here yet:
+
+- MODEXP precompile (EIP-198): concrete evaluation and a typed uninterpreted
+  function instead of the current opaque one
+- performance: skip the Z3 `substitute()` traversal when no free variable
+  matches, bound the concurrency of solver subprocesses, memoize invariant
+  target resolution
+- support multiple `setUp()` states ([a16z/halmos#186](https://github.com/a16z/halmos/issues/186))
+- docker image and a published package
+
+## License
+
+AGPL-3.0, inherited from upstream. See [LICENSE](LICENSE).
 
 ## Disclaimer
 
-_These smart contracts and code are being provided as is. No guarantee, representation or warranty is being made, express or implied, as to the safety or correctness of the user interface or the smart contracts and code. They have not been audited and as such there can be no assurance they will work as intended, and users may experience delays, failures, errors, omissions or loss of transmitted information. THE SMART CONTRACTS AND CODE CONTAINED HEREIN ARE FURNISHED AS IS, WHERE IS, WITH ALL FAULTS AND WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF MERCHANTABILITY, NON-INFRINGEMENT OR FITNESS FOR ANY PARTICULAR PURPOSE. Further, use of any of these smart contracts and code may be restricted or prohibited under applicable law, including securities laws, and it is therefore strongly advised for you to contact a reputable attorney in any jurisdiction where these smart contracts and code may be accessible for any questions or concerns with respect thereto. Further, no information provided in this repo should be construed as investment advice or legal advice for any particular facts or circumstances, and is not meant to replace competent counsel. a16z is not liable for any use of the foregoing, and users should proceed with caution and use at their own risk. See a16z.com/disclosures for more info._
+_These smart contracts and code are being provided as is. No guarantee,
+representation or warranty is being made, express or implied, as to the safety
+or correctness of the user interface or the smart contracts and code. They have
+not been audited and as such there can be no assurance they will work as
+intended, and users may experience delays, failures, errors, omissions or loss
+of transmitted information. THE SMART CONTRACTS AND CODE CONTAINED HEREIN ARE
+FURNISHED AS IS, WHERE IS, WITH ALL FAULTS AND WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF MERCHANTABILITY, NON-INFRINGEMENT
+OR FITNESS FOR ANY PARTICULAR PURPOSE._
+
+This fork is maintained by Dowsers and is not affiliated with or endorsed by
+a16z. The upstream disclaimer above applies to the original work; the same lack
+of warranty applies to the changes made here.
