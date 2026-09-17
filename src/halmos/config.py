@@ -69,6 +69,7 @@ def arg(
     countable: bool = False,
     global_default_str: str | None = None,
     action: Callable = None,
+    extra_names: list[str] | None = None,
 ):
     return dataclass_field(
         default=None,
@@ -79,6 +80,7 @@ def arg(
             "group": group,
             "choices": choices,
             "short": short,
+            "extra_names": extra_names or [],
             "countable": countable,
             "global_default_str": global_default_str,
             "action": action,
@@ -287,6 +289,7 @@ class Config:
         global_default="",
         metavar="FUNCTION_NAME_REGEX",
         short="mt",
+        extra_names=["-test"],
     )
 
     panic_error_codes: str = arg(
@@ -775,12 +778,15 @@ def resolve_config_files(args: list[str], include_missing: bool = False) -> list
     if args.config:
         return [args.config]
 
-    # we expect to find halmos.toml in the project root directory
-    default_config_path = os.path.join(args.root, "halmos.toml")
-    if not include_missing and not os.path.exists(default_config_path):
-        return []
+    # we expect to find dolmos.toml (or halmos.toml) in the project root directory
+    candidates = [
+        os.path.join(args.root, name) for name in ("dolmos.toml", "halmos.toml")
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return [path]
 
-    return [default_config_path]
+    return candidates[:1] if include_missing else []
 
 
 class TomlParser:
@@ -849,7 +855,8 @@ def _create_default_config() -> "Config":
 
 def _create_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="halmos",
+        # use the name the command was invoked with (halmos, dolmos, ...)
+        prog=os.path.basename(sys.argv[0]) or "halmos",
         epilog="For more information, see https://github.com/a16z/halmos",
     )
 
@@ -869,6 +876,8 @@ def _create_arg_parser() -> argparse.ArgumentParser:
         short_name = field_info.metadata.get("short", None)
         if short_name:
             names.append(f"-{short_name}")
+
+        names.extend(field_info.metadata.get("extra_names", []))
 
         arg_help = field_info.metadata.get("help", "")
         metavar = field_info.metadata.get("metavar", None)
