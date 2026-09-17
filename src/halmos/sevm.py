@@ -301,7 +301,66 @@ magic_address: int = 0xAAAA0000
 
 create2_magic_address: int = 0xBBBB0000
 
+create_magic_address: int = 0xCCCC0000
+
 new_address_offset: int = 1
+
+
+def rlp_create_preimage(sender: Address, nonce: int) -> BitVecRef:
+    """
+    Returns the RLP encoding of [sender, nonce], i.e. the preimage of the keccak hash
+    that determines the address of a contract deployed with CREATE.
+
+    This is the encoding that contracts use to predict CREATE addresses themselves,
+    e.g. CREATE3 libraries computing keccak256(abi.encodePacked(hex"d694", proxy, hex"01")).
+    """
+
+    if nonce < 0:
+        raise ValueError(nonce)
+
+    if nonce == 0:
+        # the empty string is encoded as 0x80
+        nonce_rlp = con(0x80, 8)
+    elif nonce < 0x80:
+        # a single byte below 0x80 is its own encoding
+        nonce_rlp = con(nonce, 8)
+    else:
+        num_bytes = (nonce.bit_length() + 7) // 8
+        nonce_rlp = Concat(con(0x80 + num_bytes, 8), con(nonce, 8 * num_bytes))
+
+    # 1 byte for the address prefix (0x94) + 20 address bytes + the encoded nonce
+    payload_size = 21 + nonce_rlp.size() // 8
+
+    return simplify(
+        Concat(
+            con(0xC0 + payload_size, 8),
+            con(0x94, 8),
+            uint160(sender).as_z3(),
+            nonce_rlp,
+        )
+    )
+
+
+def is_rlp_create_preimage(data: Bytes, size: int) -> bool:
+    """
+    Returns true if the given data looks like the RLP encoding of [address, nonce],
+    i.e. `0xc0+n 0x94 <20-byte address> <encoded nonce>`.
+    """
+
+    # 23 bytes for a nonce in [0, 0x7f], more for larger nonces
+    if not (23 <= size <= 32):
+        return False
+
+    data = ByteVec(data)
+    list_prefix = unbox_int(data.get_byte(0))
+    addr_prefix = unbox_int(data.get_byte(1))
+
+    return (
+        isinstance(list_prefix, int)
+        and isinstance(addr_prefix, int)
+        and list_prefix == 0xC0 + size - 1
+        and addr_prefix == 0x94
+    )
 
 
 def jumpid_str(jumpid: JumpID) -> str:
@@ -1191,6 +1250,7 @@ class Exec:  # an execution path
 
     # internal bookkeeping
     cnts: dict[str, int]  # counters
+    nonces: dict[str, int]  # account nonces, used for CREATE address derivation
     sha3s: KeccakRegistry  # sha3 hashes generated
     storages: dict[Any, Any]  # storage updates
     balances: dict[Any, Any]  # balance updates
@@ -1227,6 +1287,10 @@ class Exec:  # an execution path
         self.alias = kwargs["alias"]
         #
         self.cnts = kwargs["cnts"]
+        # note: an empty dict must be preserved as-is, so that sub-contexts keep
+        # sharing the same nonce map as their parent frame
+        nonces = kwargs.get("nonces")
+        self.nonces = nonces if nonces is not None else defaultdict(int)
         self.sha3s = kwargs["sha3s"]
         self.storages = kwargs["storages"]
         self.balances = kwargs["balances"]
@@ -1556,6 +1620,12 @@ class Exec:  # an execution path
             if isinstance(first_byte, int) and first_byte == 0xFF:
                 return con(create2_magic_address + self.sha3s.get_id(sha3_expr))
 
+        # handle create hash: keccak256(rlp([sender, nonce]))
+        # Exec.new_address() returns the same magic address, so that contracts
+        # predicting CREATE addresses (e.g. CREATE3 libraries) agree with the executor
+        if is_rlp_create_preimage(data, size):
+            return con(create_magic_address + self.sha3s.get_id(sha3_expr))
+
         # return the concrete hash value if available, otherwise return the hash expression
         return sha3_hash_bv if sha3_hash is not None else sha3_expr
 
@@ -1596,9 +1666,36 @@ class Exec:  # an execution path
         self.cnts["gas"] += 1
         return self.cnts["gas"]
 
-    def new_address(self) -> Address:
-        self.cnts["address"] += 1
-        return con_addr(magic_address + new_address_offset + self.cnts["address"])
+    def nonce_key(self, addr: Address) -> str:
+        # normalize the address, so that BV and z3 representations map to the same key
+        return str(uint160(addr).as_z3())
+
+    def nonce_of(self, addr: Address) -> int:
+        return self.nonces[self.nonce_key(addr)]
+
+    def set_nonce(self, addr: Address, nonce: int) -> None:
+        self.nonces[self.nonce_key(addr)] = nonce
+
+    def bump_nonce(self, addr: Address) -> None:
+        self.nonces[self.nonce_key(addr)] += 1
+
+    def new_address(self, sender: Address | None = None) -> Address:
+        """
+        Returns the address of the contract to be created by `sender` with CREATE.
+
+        The address is derived from keccak256(rlp([sender, nonce])) as in the EVM,
+        except that sha3_data() maps the hash to a magic address (see sha3_data).
+        This keeps addresses concrete and short while staying consistent with
+        contracts that predict CREATE addresses themselves.
+        """
+
+        if sender is None:
+            # legacy behavior, used when no sender is available (e.g. library deployment)
+            self.cnts["address"] += 1
+            return con_addr(magic_address + new_address_offset + self.cnts["address"])
+
+        preimage = rlp_create_preimage(sender, self.nonce_of(sender))
+        return uint160(self.sha3_data(preimage)).as_z3()
 
     def new_symbol_id(self) -> int:
         self.cnts["symbol"] += 1
@@ -2460,6 +2557,7 @@ class SEVM:
                 alias=ex.alias,
                 #
                 cnts=ex.cnts,
+                nonces=ex.nonces,
                 sha3s=ex.sha3s,
                 storages=ex.storages,
                 balances=ex.balances,
@@ -2689,7 +2787,7 @@ class SEVM:
 
         # new account address
         if op == OP_CREATE:
-            new_addr = ex.new_address()
+            new_addr = ex.new_address(pranked_caller)
         elif op == OP_CREATE2:  # OP_CREATE2
             # create_hexcode must be z3 expression to be passed into sha3_data
             create_hexcode = create_hexcode.unwrap()
@@ -2711,6 +2809,10 @@ class SEVM:
             new_addr = uint160(ex.sha3_data(hash_data)).as_z3()
         else:
             raise HalmosException(f"Unknown CREATE opcode: {op}")
+
+        # both CREATE and CREATE2 increment the creator's nonce,
+        # regardless of whether the creation succeeds
+        ex.bump_nonce(pranked_caller)
 
         message = Message(
             target=new_addr,
@@ -2749,6 +2851,9 @@ class SEVM:
 
         # setup new account
         ex.set_code(new_addr, Contract(b""))  # existing code must be empty
+
+        # a newly created account starts with nonce 1 (EIP-161)
+        ex.set_nonce(new_addr, 1)
 
         # existing storage may not be empty and reset here
         ex.storage[new_addr] = self.mk_storagedata()
@@ -2826,6 +2931,7 @@ class SEVM:
             alias=ex.alias,
             #
             cnts=ex.cnts,
+            nonces=ex.nonces,
             sha3s=ex.sha3s,
             storages=ex.storages,
             balances=ex.balances,
@@ -2949,6 +3055,7 @@ class SEVM:
             alias=ex.alias.copy(),
             #
             cnts=deepcopy(ex.cnts),
+            nonces=deepcopy(ex.nonces),
             sha3s=ex.sha3s.copy(),
             storages=ex.storages.copy(),
             balances=ex.balances.copy(),
@@ -3040,6 +3147,7 @@ class SEVM:
             alias=pre_ex.alias.copy(),
             #
             cnts=deepcopy(pre_ex.cnts),
+            nonces=deepcopy(pre_ex.nonces),
             sha3s=pre_ex.sha3s.copy(),
             storages=pre_ex.storages.copy(),
             balances=pre_ex.balances.copy(),
@@ -3714,6 +3822,7 @@ class SEVM:
             #
             log=[],
             cnts=defaultdict(int),
+            nonces=defaultdict(int),
             sha3s=KeccakRegistry(),
             storages={},
             balances={},

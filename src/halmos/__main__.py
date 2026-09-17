@@ -293,6 +293,9 @@ def deploy_test(ctx: FunctionContext, sevm: SEVM) -> Exec:
     # foundry default balance for the test contract
     ex.balance_update(this, con(0xFFFFFFFFFFFFFFFFFFFFFFFF))
 
+    # the test contract is a deployed contract, so its nonce starts at 1 (EIP-161)
+    ex.set_nonce(this, 1)
+
     # deploy libraries and resolve library placeholders in hexcode
     contract_ctx = ctx.contract_ctx
     (creation_hexcode, _) = ex.resolve_libs(
