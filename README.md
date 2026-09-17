@@ -128,9 +128,6 @@ pull request against
 [a16z/halmos](https://github.com/a16z/halmos). The CREATE3 work above is written
 that way and is meant to be proposed.
 
-See the upstream [contributing guidelines](CONTRIBUTING.md) for style, tests and
-commit conventions.
-
 ## Roadmap
 
 Work in progress, not merged here yet:
