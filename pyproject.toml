@@ -36,7 +36,6 @@ dependencies = [
 dynamic = ["version"]
 
 [project.scripts]
-halmos = "halmos.__main__:main"
 dolmos = "halmos.__main__:main"
 
 [project.urls]
