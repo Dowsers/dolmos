@@ -4,7 +4,7 @@
 [![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2FHugoDowsers%2Fdolmos%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](pyproject.toml)
 [![upstream](https://img.shields.io/badge/fork%20of-a16z%2Fhalmos-blue)](https://github.com/a16z/halmos)
 
-Dolmos is the [Dowsers](https://github.com/HugoDowsers) fork of
+Dolmos is the [Dowsers](https://github.com/Dowsers) fork of
 [a16z/halmos](https://github.com/a16z/halmos), a _symbolic testing_ tool for EVM
 smart contracts driven by Foundry tests.
 
