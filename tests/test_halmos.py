@@ -1,5 +1,6 @@
 import dataclasses
 import json
+import shutil
 
 import pytest
 
@@ -17,7 +18,7 @@ from halmos.traces import rendered_calldata
             "tests/expected/all.json",
         ),
         (
-            ["--root", "tests/ffi"],
+            ["--root", "tests/ffi", "--ffi"],
             "tests/expected/ffi.json",
         ),
         (
@@ -54,6 +55,20 @@ from halmos.traces import rendered_calldata
 def test_main(cmd, expected_path, halmos_options):
     actual = dataclasses.asdict(_main(cmd + halmos_options.split()))
     with open(expected_path, encoding="utf8") as f:
+        expected = json.load(f)
+    assert expected["exitcode"] == actual["exitcode"]
+    assert_eq(expected["test_results"], actual["test_results"])
+
+
+@pytest.mark.skipif(
+    shutil.which("vyper") is None, reason="vyper compiler not found in PATH"
+)
+def test_main_vyper(halmos_options):
+    # vyper tests and vyper targets (requires the vyper compiler, used by forge)
+    actual = dataclasses.asdict(
+        _main(["--root", "tests/vyper"] + halmos_options.split())
+    )
+    with open("tests/expected/vyper.json", encoding="utf8") as f:
         expected = json.load(f)
     assert expected["exitcode"] == actual["exitcode"]
     assert_eq(expected["test_results"], actual["test_results"])

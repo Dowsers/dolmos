@@ -131,7 +131,23 @@ def test_config_file_in_project_root():
     config_files = resolve_config_files(args, include_missing=True)
 
     # then the config file should be in the project root
-    assert config_files == [os.path.join(base_path, "halmos.toml")]
+    # (dolmos.toml is the preferred name when neither file exists)
+    assert config_files == [os.path.join(base_path, "dolmos.toml")]
+
+
+def test_config_file_halmos_toml_fallback(tmp_path):
+    # halmos.toml is still picked up when there is no dolmos.toml
+    (tmp_path / "halmos.toml").write_text("[global]\n")
+    config_files = resolve_config_files(["--root", str(tmp_path)])
+    assert config_files == [str(tmp_path / "halmos.toml")]
+
+
+def test_config_file_dolmos_toml_first(tmp_path):
+    # dolmos.toml takes precedence when both exist
+    (tmp_path / "halmos.toml").write_text("[global]\n")
+    (tmp_path / "dolmos.toml").write_text("[global]\n")
+    config_files = resolve_config_files(["--root", str(tmp_path)])
+    assert config_files == [str(tmp_path / "dolmos.toml")]
 
 
 def test_config_file_explicit():

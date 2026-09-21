@@ -5,10 +5,186 @@ import os
 import re
 import traceback
 
+from eth_hash.auto import keccak
+
+from halmos.calldata import str_abi
 from halmos.config import Config as HalmosConfig
 from halmos.logs import PARSING_ERROR, debug, warn_code
 from halmos.mapper import Mapper, SourceFileMap
 from halmos.ui import ui
+
+SOLIDITY_EXTENSIONS = (".sol",)
+VYPER_EXTENSIONS = (".vy", ".vyi")
+
+# build output groups are keyed by compiler version; vyper groups get this prefix
+# so that they never collide with solc versions (e.g. vyper 0.4.3 vs solc 0.4.3)
+VYPER_VERSION_PREFIX = "vyper:"
+
+FORGE_CACHE_FILE = os.path.join("cache", "solidity-files-cache.json")
+
+
+def is_vyper_file(filename: str) -> bool:
+    return filename.endswith(VYPER_EXTENSIONS)
+
+
+def is_vyper_group(compiler_version: str) -> bool:
+    return compiler_version.startswith(VYPER_VERSION_PREFIX)
+
+
+def is_vyper_contract(contract_json: dict) -> bool:
+    return contract_json.get("language") == "vyper"
+
+
+def get_source_path(contract_json: dict, default: str | None = None) -> str | None:
+    """
+    Return the source path of a build artifact (e.g. `test/Foo.t.sol`).
+
+    solc artifacts carry it in their AST; vyper artifacts get it from the forge
+    cache during normalization (see `normalize_vyper_artifact`).
+    """
+    if path := contract_json.get("sourcePath"):
+        return path
+    try:
+        return contract_json["ast"]["absolutePath"]
+    except (KeyError, TypeError):
+        return default
+
+
+def load_forge_cache(root: str, out_path: str) -> dict:
+    """
+    Return a mapping from artifact path (relative to the build output directory,
+    e.g. `Counter.vy/Counter.json`) to a (source path, compiler version) pair.
+
+    Vyper artifacts emitted by forge only contain the abi and the bytecode, so the
+    forge cache is the only place where the source path and compiler version live.
+    Best effort: returns an empty mapping if the cache is missing or unreadable.
+    """
+    cache_path = os.path.join(root, FORGE_CACHE_FILE)
+    result = {}
+
+    try:
+        with open(cache_path, encoding="utf8") as f:
+            cache = json.load(f)
+    except (OSError, ValueError) as err:
+        debug(f"could not read forge cache {cache_path}: {err}")
+        return result
+
+    for source_path, entry in cache.get("files", {}).items():
+        for versions in entry.get("artifacts", {}).values():
+            for version, profiles in versions.items():
+                for artifact in profiles.values():
+                    artifact_path = artifact.get("path")
+                    if not artifact_path:
+                        continue
+                    # paths are relative to the out dir; tolerate an `out/` prefix
+                    artifact_path = os.path.normpath(artifact_path)
+                    out_prefix = os.path.basename(os.path.normpath(out_path)) + os.sep
+                    if artifact_path.startswith(out_prefix):
+                        artifact_path = artifact_path[len(out_prefix) :]
+                    result[os.path.normpath(artifact_path)] = (source_path, version)
+
+    return result
+
+
+_DOCSTRING = r'(?:"""(?P<doc>.*?)"""|\'\'\'(?P<doc2>.*?)\'\'\')'
+
+# module docstring: the first string literal of the file, possibly after comments
+# such as `# pragma version ...`
+_VYPER_MODULE_DOCSTRING = re.compile(r"\A(?:\s*#[^\n]*\n|\s+)*" + _DOCSTRING, re.DOTALL)
+
+# function docstring: first string literal right after the (possibly multiline) signature
+_VYPER_FUNCTION_DOCSTRING = re.compile(
+    r"^[ \t]*def[ \t]+(?P<name>\w+)[ \t]*\((?:[^()]|\([^()]*\))*\)"
+    r"(?:[ \t]*->[^:\n]+)?[ \t]*:[ \t]*(?:#[^\n]*)?\n\s*" + _DOCSTRING,
+    re.DOTALL | re.MULTILINE,
+)
+
+
+def _docstring_text(match: re.Match) -> str:
+    return match.group("doc") if match.group("doc") is not None else match.group("doc2")
+
+
+def parse_vyper_docstrings(source: str) -> tuple[str | None, dict[str, str]]:
+    """
+    Extract the module docstring and the per-function docstrings of a vyper source.
+
+    Returns (module docstring or None, function name -> docstring).
+    """
+    module_doc = None
+    if match := _VYPER_MODULE_DOCSTRING.match(source):
+        module_doc = _docstring_text(match)
+
+    function_docs = {}
+    for match in _VYPER_FUNCTION_DOCSTRING.finditer(source):
+        function_docs.setdefault(match.group("name"), _docstring_text(match))
+
+    return module_doc, function_docs
+
+
+def normalize_vyper_artifact(
+    json_out: dict, dirname: str, root: str, cache_entry
+) -> tuple[str, str, dict | None]:
+    """
+    Bring a forge vyper artifact into the shape that halmos expects from solc artifacts.
+
+    forge only emits `abi`, `bytecode`, `deployedBytecode`, an empty `methodIdentifiers`
+    and an `id` for vyper, so we fill in:
+    - `methodIdentifiers`, computed from the abi
+    - `bytecode.linkReferences` (vyper has no libraries)
+    - `metadata.compiler.version` and `metadata.output.devdoc` (for `@custom:halmos`)
+    - `sourcePath` and `language`
+
+    Returns (contract type, compiler version group key, natspec).
+    """
+    source_path, version = cache_entry if cache_entry else (dirname, "unknown")
+
+    json_out["language"] = "vyper"
+    json_out["sourcePath"] = source_path
+
+    if not json_out.get("methodIdentifiers"):
+        json_out["methodIdentifiers"] = {
+            (sig := str_abi(item)): keccak(sig.encode()).hex()[:8]
+            for item in json_out.get("abi", [])
+            if item.get("type") == "function"
+        }
+
+    for key in ("bytecode", "deployedBytecode"):
+        entry = json_out.get(key)
+        if isinstance(entry, str):
+            entry = {"object": entry}
+        entry = entry or {"object": "0x"}
+        entry.setdefault("object", "0x")
+        entry.setdefault("linkReferences", {})
+        json_out[key] = entry
+
+    # vyper modules are always contracts, .vyi files are always interfaces
+    contract_type = "interface" if dirname.endswith(".vyi") else "contract"
+
+    # `@custom:halmos` annotations live in docstrings; forge does not give us the
+    # devdoc for vyper, so read them straight from the source
+    natspec = None
+    devdoc_methods = {}
+    try:
+        with open(os.path.join(root, source_path), encoding="utf8") as f:
+            module_doc, function_docs = parse_vyper_docstrings(f.read())
+
+        if module_doc:
+            natspec = {"text": module_doc}
+
+        for funsig in json_out["methodIdentifiers"]:
+            doc = function_docs.get(funsig.split("(")[0])
+            if doc and (halmos_args := parse_natspec({"text": doc})):
+                devdoc_methods[funsig] = {"custom:halmos": halmos_args}
+    except OSError as err:
+        debug(f"could not read vyper source {source_path}: {err}")
+
+    metadata = json_out.setdefault("metadata", {})
+    metadata.setdefault("compiler", {}).setdefault("version", version)
+    metadata.setdefault("output", {}).setdefault("devdoc", {}).setdefault(
+        "methods", {}
+    ).update(devdoc_methods)
+
+    return contract_type, VYPER_VERSION_PREFIX + version, natspec
 
 
 def get_contract_type(
@@ -40,8 +216,12 @@ def parse_build_out(args: HalmosConfig) -> dict:
         )
 
     ui.update_status(f"Parsing {out_path}")
+
+    # only needed for vyper artifacts, loaded lazily
+    forge_cache = None
+
     for sol_dirname in os.listdir(out_path):  # for each source filename
-        if not sol_dirname.endswith(".sol"):
+        if not sol_dirname.endswith(SOLIDITY_EXTENSIONS + VYPER_EXTENSIONS):
             continue
 
         sol_path = os.path.join(out_path, sol_dirname)
@@ -59,14 +239,40 @@ def parse_build_out(args: HalmosConfig) -> dict:
                 with open(json_path, encoding="utf8") as f:
                     json_out = json.load(f)
 
+                # cut off compiler version number as well
+                contract_name = json_filename.split(".")[0]
+
+                if is_vyper_file(sol_dirname):
+                    if forge_cache is None:
+                        forge_cache = load_forge_cache(root, out_path)
+
+                    cache_entry = forge_cache.get(
+                        os.path.normpath(os.path.join(sol_dirname, json_filename))
+                    )
+                    contract_type, compiler_version, natspec = normalize_vyper_artifact(
+                        json_out, sol_dirname, root, cache_entry
+                    )
+
+                    # note: coverage is not supported for vyper (no source maps),
+                    # and vyper file ids would clash with solc ones
+                    add_to_build_out(
+                        result,
+                        compiler_version,
+                        sol_dirname,
+                        contract_name,
+                        (json_out, contract_type, natspec),
+                    )
+                    parse_symbols(
+                        args, result[compiler_version][sol_dirname], contract_name
+                    )
+                    continue
+
                 ast = json_out["ast"]
 
                 if coverage_output:
                     # record the mapping between file id and file path
                     SourceFileMap().add_mapping(json_out["id"], ast["absolutePath"])
 
-                # cut off compiler version number as well
-                contract_name = json_filename.split(".")[0]
                 ast_nodes = ast["nodes"]
                 contract_type, natspec = get_contract_type(ast_nodes, contract_name)
 
@@ -80,19 +286,16 @@ def parse_build_out(args: HalmosConfig) -> dict:
                     continue
 
                 compiler_version = json_out["metadata"]["compiler"]["version"]
-                result.setdefault(compiler_version, {})
-                result[compiler_version].setdefault(sol_dirname, {})
-                contract_map = result[compiler_version][sol_dirname]
-
-                if contract_name in contract_map:
-                    raise ValueError(
-                        "duplicate contract names in the same file",
-                        contract_name,
-                        sol_dirname,
-                    )
-
-                contract_map[contract_name] = (json_out, contract_type, natspec)
-                parse_symbols(args, contract_map, contract_name)
+                add_to_build_out(
+                    result,
+                    compiler_version,
+                    sol_dirname,
+                    contract_name,
+                    (json_out, contract_type, natspec),
+                )
+                parse_symbols(
+                    args, result[compiler_version][sol_dirname], contract_name
+                )
 
             except Exception as err:
                 warn_code(
@@ -107,6 +310,21 @@ def parse_build_out(args: HalmosConfig) -> dict:
     return result
 
 
+def add_to_build_out(
+    result: dict, compiler_version: str, filename: str, contract_name: str, entry
+) -> None:
+    contract_map = result.setdefault(compiler_version, {}).setdefault(filename, {})
+
+    if contract_name in contract_map:
+        raise ValueError(
+            "duplicate contract names in the same file",
+            contract_name,
+            filename,
+        )
+
+    contract_map[contract_name] = entry
+
+
 def parse_symbols(args: HalmosConfig, contract_map: dict, contract_name: str) -> None:
     try:
         json_out = contract_map[contract_name][0]
@@ -117,7 +335,9 @@ def parse_symbols(args: HalmosConfig, contract_map: dict, contract_name: str) ->
         contract_mapping_info = Mapper().get_or_create(contract_name)
         contract_mapping_info.bytecode = bytecode
 
-        Mapper().parse_ast(json_out["ast"])
+        # vyper artifacts have no (solc-style) ast
+        if "ast" in json_out:
+            Mapper().parse_ast(json_out["ast"])
 
     except Exception:
         debug(f"error parsing symbols for contract {contract_name}")
@@ -186,9 +406,51 @@ def import_libs(build_out_map: dict, hexcode: str, linkReferences: dict) -> dict
     return libs
 
 
+def has_vyper_contracts(build_out: dict) -> bool:
+    return any(is_vyper_group(version) for version in build_out)
+
+
+def build_out_view(build_out: dict, compiler_version: str) -> dict:
+    """
+    Return the build output map visible to test contracts of the given group.
+
+    Test contracts normally only see contracts compiled with the same compiler version
+    (e.g. for library linking and bytecode lookups). Cross-language setups are common
+    though (solidity tests for vyper contracts, and vice versa), so:
+    - solidity groups also see every vyper contract
+    - vyper groups see every vyper contract, and the solidity contracts if there is
+      a single solc version (otherwise the lookup would be ambiguous)
+
+    Solidity and vyper filenames can't collide since they have different extensions.
+    """
+    own = build_out[compiler_version]
+    vyper_groups = [v for v in build_out if is_vyper_group(v)]
+    solc_groups = [v for v in build_out if not is_vyper_group(v)]
+
+    if is_vyper_group(compiler_version):
+        shared = [v for v in vyper_groups if v != compiler_version]
+        if len(solc_groups) == 1:
+            shared += solc_groups
+    else:
+        shared = vyper_groups
+
+    if not shared:
+        return own
+
+    view = dict(own)
+    for version in sorted(shared):
+        for filename, contracts in build_out[version].items():
+            view.setdefault(filename, contracts)
+    return view
+
+
 def build_output_iterator(build_out: dict):
     for compiler_version in sorted(build_out):
         build_out_map = build_out[compiler_version]
+
+        # computed once per group, so that the BuildOut singleton can cache it
+        view = build_out_view(build_out, compiler_version)
+
         for filename in sorted(build_out_map):
             for contract_name in sorted(build_out_map[filename]):
-                yield (build_out_map, filename, contract_name)
+                yield (view, filename, contract_name)

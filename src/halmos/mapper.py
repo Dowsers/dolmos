@@ -204,6 +204,7 @@ class BuildOut(metaclass=SingletonMeta):
         self._build_out_map: dict = None
         self._build_out_map_reverse: dict = None
         self._build_out_map_code: dict = None
+        self._vyper_code: list = None
 
     def set_build_out(self, build_out_map: dict):
         if self._build_out_map is build_out_map:
@@ -212,6 +213,7 @@ class BuildOut(metaclass=SingletonMeta):
         self._build_out_map = build_out_map
         self._build_out_map_reverse = None
         self._build_out_map_code = None
+        self._vyper_code = None
 
     def create_build_out_map_reverse(self):
         # create reverse mapping
@@ -276,6 +278,10 @@ class BuildOut(metaclass=SingletonMeta):
         """
         self._build_out_map_code = defaultdict(list)
 
+        # vyper appends immutables to the runtime code at deployment time, so the
+        # deployed code is longer than the compile-time runtime code (matched by prefix)
+        self._vyper_code = []
+
         empty = {"object": "0x"}
         for filename, file_map in self._build_out_map.items():
             for contract_name, (contract_map, _, _) in file_map.items():
@@ -291,6 +297,9 @@ class BuildOut(metaclass=SingletonMeta):
                 source_map = deployed.get("sourceMap", "")
                 code_data = (hexcode, placeholders, contract_name, filename, source_map)
                 self._build_out_map_code[size].append(code_data)
+
+                if contract_map.get("language") == "vyper":
+                    self._vyper_code.append(code_data)
 
     def get_by_code(
         self, bytecode: ForwardRef("ByteVec")
@@ -321,6 +330,13 @@ class BuildOut(metaclass=SingletonMeta):
         for code_data in self._build_out_map_code[len(bytecode)]:
             hexcode, placeholders, contract_name, filename, source_map = code_data
             if eq_except_placeholders(hexcode, placeholders):
+                return (contract_name, filename, source_map)
+
+        # vyper contracts with immutables: compile-time runtime code + immutables section
+        for code_data in self._vyper_code:
+            hexcode, _, contract_name, filename, source_map = code_data
+            size = len(hexcode) // 2
+            if size < len(bytecode) and eq_bytes(bytecode[:size], hexcode):
                 return (contract_name, filename, source_map)
 
         return (None, None, None)

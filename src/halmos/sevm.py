@@ -1,4 +1,3 @@
-
 # SPDX-License-Identifier: AGPL-3.0
 
 import itertools
@@ -73,8 +72,8 @@ from halmos.contract import (
     OP_AND,
     OP_BALANCE,
     OP_BASEFEE,
-    OP_BLOBHASH,
     OP_BLOBBASEFEE,
+    OP_BLOBHASH,
     OP_BLOCKHASH,
     OP_BYTE,
     OP_CALL,
@@ -84,6 +83,7 @@ from halmos.contract import (
     OP_CALLER,
     OP_CALLVALUE,
     OP_CHAINID,
+    OP_CLZ,
     OP_CODECOPY,
     OP_CODESIZE,
     OP_COINBASE,
@@ -134,7 +134,6 @@ from halmos.contract import (
     OP_RETURNDATASIZE,
     OP_REVERT,
     OP_SAR,
-    OP_CLZ,
     OP_SDIV,
     OP_SELFBALANCE,
     OP_SGT,
@@ -775,7 +774,7 @@ class Block:
     number: BitVecRef
     timestamp: BitVecRef
     blobbasefee: BitVecRef  # EIP-4844 / Cancun — opcode 0x4A
-    blobhashes: list        # EIP-4844 / Cancun — opcode 0x49, list of BitVecRef (256-bit)
+    blobhashes: list  # EIP-4844 / Cancun — opcode 0x49, list of BitVecRef (256-bit)
 
     def __init__(self, **kwargs) -> None:
         self.basefee = kwargs["basefee"]
@@ -786,7 +785,7 @@ class Block:
         self.number = kwargs["number"]
         self.timestamp = kwargs["timestamp"]
         self.blobbasefee = kwargs.get("blobbasefee", ZERO)  # 0 par défaut
-        self.blobhashes = kwargs.get("blobhashes", [])      # pas de blobs par défaut
+        self.blobhashes = kwargs.get("blobhashes", [])  # pas de blobs par défaut
 
         assert_address(self.coinbase)
 

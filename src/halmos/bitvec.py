@@ -1,4 +1,3 @@
-
 # SPDX-License-Identifier: AGPL-3.0
 
 from typing import Any, TypeAlias
@@ -881,7 +880,7 @@ class HalmosBitVec:
             acc = If(top_zero, acc + BitVecVal(shift, size), acc)
             cur = If(
                 top_zero,
-                cur << BitVecVal(shift, size),              # expose next band at MSB
+                cur << BitVecVal(shift, size),  # expose next band at MSB
                 top_bits << BitVecVal(size - shift, size),  # keep current band aligned
             )
 

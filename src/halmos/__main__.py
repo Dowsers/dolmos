@@ -42,6 +42,8 @@ from z3 import (
 import halmos.traces
 from halmos.build import (
     build_output_iterator,
+    get_source_path,
+    has_vyper_contracts,
     import_libs,
     parse_build_out,
     parse_devdoc,
@@ -66,7 +68,12 @@ from halmos.constants import (
 )
 from halmos.contract import CoverageReporter
 from halmos.env import init_env
-from halmos.exceptions import FailCheatcode, HalmosException
+from halmos.exceptions import (
+    FailCheatcode,
+    HalmosException,
+    InvalidOpcode,
+    Revert,
+)
 from halmos.flamegraphs import CallSequenceFlamegraph, call_flamegraph, exec_flamegraph
 from halmos.logs import (
     COUNTEREXAMPLE_INVALID,
@@ -207,6 +214,40 @@ def with_natspec(
     overrides = arg_parser().parse_args(shlex.split(parsed))
     source = ConfigSource.contract_annotation
     return args.with_overrides(source, **vars(overrides))
+
+
+def with_vyper_defaults(args: HalmosConfig) -> HalmosConfig:
+    """
+    Adjust the defaults for projects that contain vyper contracts:
+    - the solidity storage layout model does not apply to vyper (e.g. HashMap slots
+      are computed as keccak256(slot . key) instead of keccak256(key . slot))
+    - vyper uses the INVALID opcode for `assert ..., UNREACHABLE`, its equivalent of
+      solidity's `assert` (Panic(0x01))
+
+    Values set in a config file, an annotation or on the command line take precedence.
+    """
+    vyper_defaults = {"storage_layout": "generic", "invalid_as_failure": True}
+
+    overrides = {
+        name: value
+        for name, value in vyper_defaults.items()
+        if args.value_with_source(name)[1] <= ConfigSource.default
+    }
+
+    if not overrides:
+        return args
+
+    print(
+        "Vyper contracts found, using "
+        + ", ".join(
+            f"--{name.replace('_', '-')}" + ("" if value is True else f" {value}")
+            for name, value in overrides.items()
+        )
+        + " by default"
+    )
+
+    # same precedence as the global defaults, so any explicit setting still wins
+    return args.with_overrides(ConfigSource.default, **overrides)
 
 
 def load_config(_args) -> HalmosConfig:
@@ -450,6 +491,30 @@ def is_global_fail_set(context: CallContext) -> bool:
     return hevm_fail or any(is_global_fail_set(x) for x in context.subcalls())
 
 
+def is_invalid_opcode_found(context: CallContext) -> bool:
+    """
+    Check if the call failed because of an INVALID opcode (0xFE), e.g. vyper's
+    `assert ..., UNREACHABLE`.
+
+    The INVALID opcode may have been hit in a nested call: the callers then see a
+    failed call with no returndata and typically bubble it up as an empty revert
+    (vyper `extcall`/`staticcall`, solidity high-level calls), so we follow the chain
+    of empty reverts down the last subcall.
+    """
+    output = context.output
+    if isinstance(output.error, InvalidOpcode):
+        return True
+
+    if not isinstance(output.error, Revert):
+        return False
+
+    if output.data is not None and len(output.data) != 0:
+        return False
+
+    last_subcall = context.last_subcall()
+    return last_subcall is not None and is_invalid_opcode_found(last_subcall)
+
+
 def get_state_id(ex: Exec) -> bytes:
     """
     Computes the state snapshot hash, incorporating constraints on state variables.
@@ -682,7 +747,16 @@ def _compute_frontier(ctx: ContractContext, depth: int) -> Iterator[Exec]:
                 if subcall.output.error:
                     # ignore normal reverts
                     panic_found = post_ex.is_panic_of(panic_error_codes)
-                    if not panic_found and not is_global_fail_set(subcall):
+                    invalid_found = (
+                        not panic_found
+                        and args.invalid_as_failure
+                        and is_invalid_opcode_found(subcall)
+                    )
+                    if (
+                        not panic_found
+                        and not invalid_found
+                        and not is_global_fail_set(subcall)
+                    ):
                         continue
 
                     fun_info = subcall.message.fun_info
@@ -699,6 +773,7 @@ def _compute_frontier(ctx: ContractContext, depth: int) -> Iterator[Exec]:
                             ex=post_ex,
                             panic_found=panic_found,
                             description=msg,
+                            invalid_found=invalid_found,
                         )
                     except ShutdownError:
                         if args.debug:
@@ -807,6 +882,7 @@ class CounterexampleHandler:
         ex: Exec,
         panic_found: bool,
         description: str = None,
+        invalid_found: bool = False,
     ) -> None:
         """
         Handles a potential assertion violation by solving it in a separate process.
@@ -819,6 +895,7 @@ class CounterexampleHandler:
             ex: The execution state containing the potential violation
             panic_found: Whether it's a panic error or a legacy hevm.fail flag
             description: Optional description of the violation
+            invalid_found: Whether an INVALID opcode was hit (see --invalid-as-failure)
 
         Raises:
             ShutdownError: If the executor has been shutdown during the solving process
@@ -833,6 +910,8 @@ class CounterexampleHandler:
             if panic_found:
                 panic_code = unbox_int(output.data[4:36].unwrap())
                 print(f"Panic(0x{panic_code:02x}) {error_output}")
+            elif invalid_found:
+                print(f"INVALID opcode (0xFE) {error_output}")
             else:  # fail_found
                 print(f"(fail flag set) {error_output}")
 
@@ -1090,8 +1169,13 @@ def run_test(ctx: FunctionContext) -> TestResult:
         output = ex.context.output
         error_output = output.error
         panic_found = ex.is_panic_of(args.panic_error_codes)
+        invalid_found = (
+            not panic_found
+            and args.invalid_as_failure
+            and is_invalid_opcode_found(ex.context)
+        )
 
-        if panic_found or is_global_fail_set(ex.context):
+        if panic_found or invalid_found or is_global_fail_set(ex.context):
             potential += 1
 
             try:
@@ -1099,6 +1183,7 @@ def run_test(ctx: FunctionContext) -> TestResult:
                     path_id=path_id,
                     ex=ex,
                     panic_found=panic_found,
+                    invalid_found=invalid_found,
                 )
             except ShutdownError:
                 if args.debug:
@@ -1733,7 +1818,9 @@ def _main(_args=None) -> MainResult:
 
     if args.version:
         # the distribution is dolmos, the importable package is still halmos
-        print(f"{os.path.basename(sys.argv[0]) or 'dolmos'} {metadata.version('dolmos')}")
+        print(
+            f"{os.path.basename(sys.argv[0]) or 'dolmos'} {metadata.version('dolmos')}"
+        )
         return MainResult(0)
 
     init_env(args.root)
@@ -1802,6 +1889,10 @@ def _main(_args=None) -> MainResult:
             traceback.print_exc()
         return MainResult(1)
 
+    # vyper support: switch some defaults, unless explicitly configured
+    if has_vyper_contracts(build_out):
+        args = with_vyper_defaults(args)
+
     timer.create_subtimer("tests")
 
     total_passed = 0
@@ -1866,7 +1957,7 @@ def _main(_args=None) -> MainResult:
         linkReferences = contract_json["bytecode"]["linkReferences"]
         libs = import_libs(build_out_map, creation_hexcode, linkReferences)
 
-        contract_path = f"{contract_json['ast']['absolutePath']}:{contract_name}"
+        contract_path = f"{get_source_path(contract_json, filename)}:{contract_name}"
         print(f"\nRunning {num_found} tests for {contract_path}")
 
         # Set the test contract address in DeployAddressMapper

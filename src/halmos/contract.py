@@ -1,4 +1,3 @@
-
 # SPDX-License-Identifier: AGPL-3.0
 
 from collections import defaultdict

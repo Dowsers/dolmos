@@ -299,6 +299,11 @@ class Config:
         action=ParseErrorCodes,
     )
 
+    invalid_as_failure: bool = arg(
+        help="treat the INVALID opcode (0xFE) as a test failure, like a Panic(0x01) revert. This is how Vyper compiles `assert ..., UNREACHABLE` (and how solc < 0.8 compiles `assert`). Enabled by default when the build output contains Vyper contracts.",
+        global_default=False,
+    )
+
     invariant_depth: int = arg(
         help="set depth for invariant testing (length of the stateful sequence of calls)",
         global_default=2,
@@ -345,7 +350,7 @@ class Config:
     )
 
     storage_layout: str = arg(
-        help="Select one of the available storage layout models. The generic model should only be necessary for vyper, huff, or unconventional storage patterns in yul.",
+        help="Select one of the available storage layout models. The generic model should only be necessary for vyper, huff, or unconventional storage patterns in yul. Defaults to generic when the build output contains Vyper contracts.",
         global_default="solidity",
         choices=["solidity", "generic"],
     )

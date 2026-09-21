@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0
 
 import json
+import os
 import re
 from contextlib import suppress
 from dataclasses import dataclass
@@ -1149,9 +1150,17 @@ class hevm_cheat_code:
             path_len = arg.get_word(36)
             path = arg[68 : 68 + path_len].unwrap().decode("utf-8")
 
+            out_dir = sevm.options.forge_build_out
             if ":" in path:
+                # `File.sol:Name`, `path/to/File.vy:Name`
                 [filename, contract_name] = path.split(":")
-                path = "out/" + filename + "/" + contract_name + ".json"
+                filename = os.path.basename(filename)
+                path = f"{out_dir}/{filename}/{contract_name}.json"
+            elif path.endswith((".sol", ".vy")):
+                # `File.sol`, `path/to/File.vy`: the contract named after the file
+                filename = os.path.basename(path)
+                contract_name = filename.rsplit(".", 1)[0]
+                path = f"{out_dir}/{filename}/{contract_name}.json"
 
             target = sevm.options.root.rstrip("/")
             path = target + "/" + path
@@ -1244,7 +1253,9 @@ class hevm_cheat_code:
 
             nonce = int_of(arg.get_word(36), f"symbolic nonce in vm.{name}()")
             if not (0 <= nonce < 2**64):
-                raise HalmosException(f"vm.{name}(): nonce out of uint64 range: {nonce}")
+                raise HalmosException(
+                    f"vm.{name}(): nonce out of uint64 range: {nonce}"
+                )
 
             who = who.as_z3()
             current = ex.nonce_of(who)

@@ -36,6 +36,31 @@ prediction then agree.
 **Fusaka / Cancun opcodes.** `CLZ` (EIP-7939), with a concrete fast path and a
 logarithmic symbolic encoding, plus `BLOBHASH` and `BLOBBASEFEE` (EIP-4844).
 
+**Vyper.** Test contracts can be written in Vyper, and Solidity tests can target
+Vyper contracts. Upstream only reads the `.sol` directories of the build output,
+and forge's Vyper artifacts have no AST, no metadata and an empty
+`methodIdentifiers`; dolmos reads `.vy`/`.vyi` artifacts too, computes the
+selectors from the ABI, takes the source path and compiler version from forge's
+cache, and makes Vyper contracts visible to Solidity tests (deployed code, ABI
+for invariant targets and traces, including contracts with immutables).
+`vm.getCode` accepts `Foo.vy`, `src/Foo.vy` and `Foo.vy:Foo`.
+
+A Vyper test looks like a Solidity one: `setUp()` and `check_*`/`invariant_*`
+functions, with cheatcodes called through an interface at
+`0x7109709ECfa91a80626fF3989D68f67F5b1DD12D`. Use `assert ..., UNREACHABLE` for
+properties: it compiles to the INVALID opcode, which the new
+`--invalid-as-failure` option reports as a failure, even when it is hit in a
+nested call and bubbles up as an empty revert. A plain `assert` is an empty
+revert, indistinguishable from a `require`, so the path is silently discarded.
+The `vm.assert*` cheatcodes work as well. `@custom:halmos` annotations go in the
+module and function docstrings.
+
+When the build contains Vyper contracts, `--storage-layout generic` (Vyper
+computes `HashMap` slots as `keccak256(slot . key)`) and `--invalid-as-failure`
+become the defaults; a value set in `dolmos.toml`, an annotation or on the
+command line still wins. Coverage reports do not include Vyper code, since forge
+emits no source maps for it. See `tests/vyper` for examples.
+
 **CLI.** The command is `dolmos`; `halmos` is no longer installed. A project
 config file may be named `dolmos.toml` (read before `halmos.toml`), `--help` and
 `--version` report the name the command was invoked with, and `-test` is a short
@@ -119,6 +144,9 @@ the CLZ tests, and `test/OpCodesCLZ.sol` needs a solc recent enough to accept
 `clz()` in assembly — an older compiler fails with `Function "clz" not found`.
 And `test/Invalid.t.sol`, inherited from upstream, requires solc `^0.5.2`; if
 that version is unavailable, `forge build` stops there.
+
+The Vyper tests live in `tests/vyper` and need the `vyper` compiler in `PATH`
+(`pip install vyper`); pytest skips them otherwise.
 
 ## Contributing
 
