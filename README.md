@@ -1,6 +1,6 @@
 # Dolmos
 
-[![License](https://img.shields.io/github/license/Dowsers/dolmos)](LICENSE)
+[![License](https://img.shields.io/github/license/Dowsers/dolmos)](https://github.com/Dowsers/dolmos/blob/main/LICENSE)
 [![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2FDowsers%2Fdolmos%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](pyproject.toml)
 
 Dolmos is a _symbolic testing_ tool for EVM smart contracts, driven by
@@ -9,8 +9,8 @@ audit and formal verification work. Tests look like fuzz tests, but inputs are
 symbolic: a passing test holds for every input, and a failing one comes with a
 counterexample.
 
-Start with the [getting started guide](docs/getting-started.md) and the
-[examples](examples/README.md).
+Start with the [getting started guide](https://github.com/Dowsers/dolmos/blob/main/docs/getting-started.md) and the
+[examples](https://github.com/Dowsers/dolmos/blob/main/examples/README.md).
 
 ## Features
 
@@ -56,7 +56,7 @@ emits no source maps for it. See `tests/vyper` for examples.
 
 ## Compatibility with halmos
 
-Dolmos is derived from halmos (see [NOTICE](NOTICE)) and accepts the names used
+Dolmos is derived from halmos (see [NOTICE](https://github.com/Dowsers/dolmos/blob/main/NOTICE)) and accepts the names used
 by test suites written for it, so they should run without changes:
 
 | halmos | dolmos | |
@@ -72,30 +72,49 @@ Some things do change: the command and the Python package are named `dolmos`
 
 ## Installation
 
-Requires Python ≥ 3.11 and [Foundry](https://getfoundry.sh). Dolmos is not
-published on PyPI and has no prebuilt binaries or published Docker image yet, so
-install it from source:
+Requires Python ≥ 3.11 and [Foundry](https://getfoundry.sh).
+
+With [uv](https://docs.astral.sh/uv/) (recommended, installs `dolmos` as an
+isolated command-line tool):
+
+```sh
+uv tool install dolmos
+dolmos --version
+```
+
+With pipx or pip:
+
+```sh
+pipx install dolmos
+# or, in a virtual environment
+pip install dolmos
+```
+
+Upgrade with `uv tool upgrade dolmos` (or `pipx upgrade dolmos`,
+`pip install -U dolmos`).
+
+### Docker
+
+Each release is published as a Docker image that bundles dolmos, Foundry and the
+SMT solvers (yices, z3, cvc5, bitwuzla, stp):
+
+```sh
+docker run --rm -v "$PWD":/workspace ghcr.io/dowsers/dolmos:latest dolmos
+# or a fixed version
+docker run --rm -v "$PWD":/workspace ghcr.io/dowsers/dolmos:0.1.0 dolmos
+```
+
+### From source
 
 ```sh
 git clone https://github.com/Dowsers/dolmos.git
 cd dolmos
-python3.12 -m venv .venv && source .venv/bin/activate
-pip install -e .
-dolmos --version
+uv sync --extra dev        # or: python -m venv .venv && pip install -e ".[dev]"
+uv run dolmos --version
 ```
 
-Development install, with the test and lint dependencies:
-
-```sh
-pip install -e ".[dev]"
-pre-commit install
-```
-
-The Docker images are built by the `publish-solvers-package`,
-`publish-dolmos-builder-package` and `publish-dolmos-package` workflows, in that
-order, and pushed to `ghcr.io/<owner>/`. The workflows that run tests inside
-those images (`test-ffi`, `test-long`, `test-external`) need them to be
-published first.
+See [CONTRIBUTING.md](https://github.com/Dowsers/dolmos/blob/main/CONTRIBUTING.md)
+for the development setup.
 
 ## Usage
 
@@ -119,7 +138,7 @@ solver-timeout-assertion = 10000
 ```
 
 `python -m dolmos.config` prints every option with its default value, in that
-format. Warnings link to their explanation in [docs/warnings.md](docs/warnings.md).
+format. Warnings link to their explanation in [docs/warnings.md](https://github.com/Dowsers/dolmos/blob/main/docs/warnings.md).
 
 ## Tests
 
@@ -151,7 +170,7 @@ A few notes on the toolchain:
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+See [CONTRIBUTING.md](https://github.com/Dowsers/dolmos/blob/main/CONTRIBUTING.md).
 
 ## Roadmap
 
@@ -161,12 +180,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
   matches, bound the concurrency of solver subprocesses, memoize invariant
   target resolution
 - support multiple `setUp()` states
-- a published package and Docker image
 
 ## License
 
-AGPL-3.0, see [LICENSE](LICENSE). Dolmos is a modified version of another
-AGPL-3.0 program; [NOTICE](NOTICE) gives its origin and the notices that come
+AGPL-3.0, see [LICENSE](https://github.com/Dowsers/dolmos/blob/main/LICENSE). Dolmos is a modified version of another
+AGPL-3.0 program; [NOTICE](https://github.com/Dowsers/dolmos/blob/main/NOTICE) gives its origin and the notices that come
 with it.
 
 ## Disclaimer
@@ -176,5 +194,5 @@ without warranty of any kind, express or implied, including any warranty of
 merchantability, non-infringement or fitness for a particular purpose. They have
 not been audited. Passing symbolic tests is not a proof that a contract is free
 of bugs. Nothing in this repository is investment or legal advice. See
-[NOTICE](NOTICE) for the disclaimers attached to the original work this code is
+[NOTICE](https://github.com/Dowsers/dolmos/blob/main/NOTICE) for the disclaimers attached to the original work this code is
 derived from._
