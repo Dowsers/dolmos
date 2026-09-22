@@ -7,6 +7,14 @@ All notable changes to dolmos are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- SHA256, RIPEMD160 and MODEXP precompiles with symbolic input no longer crash
+  with a z3 sort mismatch (input sizes were given in bytes instead of bits).
+  Concrete inputs are now evaluated exactly; MODEXP follows EIP-198 (zero-padded
+  input, output on `len(M)` bytes) and EIP-7823 (lengths above 1024 bytes make
+  the call fail), and its symbolic model guarantees `result < M` (halmos#402)
+
 ## [0.1.0] - 2026-09-22
 
 First release of dolmos.

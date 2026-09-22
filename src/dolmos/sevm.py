@@ -54,6 +54,7 @@ from z3 import (
 )
 from z3.z3util import is_expr_var
 
+from dolmos import precompiles
 from dolmos.bitvec import ONE, ZERO, is_power_of_two
 from dolmos.bitvec import DolmosBitVec as BV
 from dolmos.bitvec import DolmosBool as Bool
@@ -2588,46 +2589,25 @@ class SEVM:
 
             elif to == SHA256_PRECOMPILE:
                 exit_code = ONE
-                f_sha256 = Function(
-                    f"f_sha256_{arg_size}", BitVecSorts[arg_size], BitVecSort256
-                )
-
-                unwrapped = arg.unwrap()
-                wrapped = (
-                    unwrapped if is_bv(unwrapped) else bytes_to_bv_value(unwrapped)
-                )
-                ret = ByteVec(f_sha256(wrapped))
+                ret = precompiles.sha256(arg)
 
             elif to == RIPEMD160_PRECOMPILE:
                 exit_code = ONE
-                f_ripemd160 = Function(
-                    f"f_ripemd160_{arg_size}", BitVecSorts[arg_size], BitVecSort160
-                )
-
-                unwrapped = arg.unwrap()
-                wrapped = (
-                    unwrapped if is_bv(unwrapped) else bytes_to_bv_value(unwrapped)
-                )
-                ret = ByteVec(uint256(f_ripemd160(wrapped)))
+                ret = precompiles.ripemd160(arg)
 
             elif to == IDENTITY_PRECOMPILE:
                 exit_code = ONE
                 ret = arg
 
             elif to == MODEXP_PRECOMPILE:
-                exit_code = ONE
-                modulus_size = ex.int_of(arg.get_word(64))
-                f_modexp = Function(
-                    f"f_modexp_{arg_size}_{modulus_size}",
-                    BitVecSorts[arg_size],
-                    BitVecSorts[modulus_size],
-                )
-
-                unwrapped = arg.unwrap()
-                wrapped = (
-                    unwrapped if is_bv(unwrapped) else bytes_to_bv_value(unwrapped)
-                )
-                ret = ByteVec(f_modexp(wrapped))
+                modexp_ret = precompiles.modexp(ex, arg)
+                if modexp_ret is None:
+                    # invalid input (EIP-7823): the call fails with empty returndata
+                    exit_code = ZERO
+                    ret = ByteVec()
+                else:
+                    exit_code = ONE
+                    ret = modexp_ret
 
             elif to == ECADD_PRECOMPILE:
                 exit_code = ONE
