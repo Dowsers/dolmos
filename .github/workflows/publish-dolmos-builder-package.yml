@@ -1,19 +1,26 @@
 # based on https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions#upgrading-a-workflow-that-accesses-a-registry-using-a-personal-access-token
-name: Push solvers package
+name: Push dolmos-builder package
 
 on:
   # only trigger manually, this is independent from dolmos releases
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Push solvers package"]
+    types:
+      - completed
   push:
     paths:
-      - packages/solvers/**/*
-      - .github/workflows/publish-solvers-package.yml
+      - packages/dolmos-builder/**/*
+      - .github/workflows/publish-dolmos-builder-package.yml
+
 env:
-  IMAGE_NAME: solvers
+  IMAGE_NAME: dolmos-builder
 
 jobs:
   # This pushes the image to GitHub Packages.
   push:
+    # if triggered by a workflow_run, only run if the previous workflow succeeded
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name != 'workflow_run' }}
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -32,7 +39,7 @@ jobs:
           submodules: false
 
       - name: Build image
-        run: docker build . --file packages/solvers/Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
+        run: docker build . --file packages/dolmos-builder/Dockerfile --tag $IMAGE_NAME --label "runnumber=${GITHUB_RUN_ID}"
 
       - name: Push image
         run: |
