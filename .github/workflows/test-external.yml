@@ -28,8 +28,10 @@ jobs:
           - repo: "morpho-org/morpho-blue"
             dir: "morpho-blue"
             cmd: "--solver-threads 3"
-            branch: ""
-            profile: "test"
+            # morpho-blue removed its halmos tests in January 2026 (d788823);
+            # pin the last commit that still has test/halmos/HalmosTest.sol
+            branch: "e773d85cd24d5162c836ec01ebcfa1d84550b668"
+            profile: ""
           - repo: "a16z/cicada"
             dir: "cicada"
             cmd: "--contract LibUint1024Test --function testProve --loop 256 --solver-threads 3"
