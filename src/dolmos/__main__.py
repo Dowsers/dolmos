@@ -1870,7 +1870,14 @@ def _main(_args=None) -> MainResult:
     # run forge without capturing stdout/stderr
     debug(f"Running {' '.join(build_cmd)}")
 
-    build_exitcode = subprocess.run(build_cmd).returncode
+    # recent forge versions enable `dynamic_test_linking` by default, which rewrites
+    # `new C(...)` in test files into `vm.deployCode(...)` calls. dolmos needs the
+    # original creation bytecode, so we turn it off (env var: ignored by older forge,
+    # and still overridable by the user).
+    build_env = os.environ.copy()
+    build_env.setdefault("FOUNDRY_DYNAMIC_TEST_LINKING", "false")
+
+    build_exitcode = subprocess.run(build_cmd, env=build_env).returncode
 
     if build_exitcode:
         error(f"Build failed: {build_cmd}")
