@@ -31,5 +31,5 @@ jobs:
         with:
           version: "0.5.21"
 
-      - name: Install halmos and its dependencies
+      - name: Install dolmos and its dependencies
         run: uv sync --extra dev

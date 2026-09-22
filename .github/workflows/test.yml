@@ -7,8 +7,8 @@ on:
     branches: [main]
   workflow_dispatch:
     inputs:
-      halmos-options:
-        description: "additional halmos options"
+      dolmos-options:
+        description: "additional dolmos options"
         required: false
         type: string
         default: ""
@@ -22,7 +22,7 @@ jobs:
   test:
     runs-on: ${{ matrix.os }}
     env:
-      HALMOS_ALLOW_DOWNLOAD: 1
+      DOLMOS_ALLOW_DOWNLOAD: 1
 
     strategy:
       fail-fast: false
@@ -54,20 +54,20 @@ jobs:
       - name: Set up python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
-      - name: Install halmos and its dependencies
+      - name: Install dolmos and its dependencies
         run: |
           uv sync --extra dev
 
-      - name: Write halmos.toml
+      - name: Write dolmos.toml
         shell: bash
         run: |
-          uv run python -m halmos.config \
+          uv run python -m dolmos.config \
             --storage-layout ${{ matrix.storage-layout }} \
             ${{ matrix.cache-solver }} \
-            | tee tests/regression/halmos.toml
+            | tee tests/regression/dolmos.toml
 
       - name: Run pytest
         shell: bash
         run: |
           uv run pytest -v -k "not long and not ffi" --ignore=tests/lib \
-            --halmos-options="-st --disable-gc --solver-threads 1 ${{ inputs.halmos-options }}" ${{ inputs.pytest-options }}
+            --dolmos-options="-st --disable-gc --solver-threads 1 ${{ inputs.dolmos-options }}" ${{ inputs.pytest-options }}
