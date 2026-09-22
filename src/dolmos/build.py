@@ -2,6 +2,7 @@
 
 import json
 import os
+import posixpath
 import re
 import traceback
 
@@ -50,6 +51,11 @@ def get_source_path(contract_json: dict, default: str | None = None) -> str | No
         return default
 
 
+def _artifact_key(path: str) -> str:
+    """Normalize an artifact path to a platform-independent key (`/` separators)."""
+    return posixpath.normpath(path.replace("\\", "/"))
+
+
 def load_forge_cache(root: str, out_path: str) -> dict:
     """
     Return a mapping from artifact path (relative to the build output directory,
@@ -77,11 +83,11 @@ def load_forge_cache(root: str, out_path: str) -> dict:
                     if not artifact_path:
                         continue
                     # paths are relative to the out dir; tolerate an `out/` prefix
-                    artifact_path = os.path.normpath(artifact_path)
-                    out_prefix = os.path.basename(os.path.normpath(out_path)) + os.sep
+                    artifact_path = _artifact_key(artifact_path)
+                    out_prefix = os.path.basename(os.path.normpath(out_path)) + "/"
                     if artifact_path.startswith(out_prefix):
                         artifact_path = artifact_path[len(out_prefix) :]
-                    result[os.path.normpath(artifact_path)] = (source_path, version)
+                    result[artifact_path] = (source_path, version)
 
     return result
 
@@ -247,7 +253,7 @@ def parse_build_out(args: DolmosConfig) -> dict:
                         forge_cache = load_forge_cache(root, out_path)
 
                     cache_entry = forge_cache.get(
-                        os.path.normpath(os.path.join(sol_dirname, json_filename))
+                        _artifact_key(f"{sol_dirname}/{json_filename}")
                     )
                     contract_type, compiler_version, natspec = normalize_vyper_artifact(
                         json_out, sol_dirname, root, cache_entry
