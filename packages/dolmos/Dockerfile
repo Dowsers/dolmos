@@ -5,13 +5,13 @@ FROM ghcr.io/dowsers/dolmos-builder:latest
 # - enable the virtual environment
 # - install dolmos and its dependencies in UV_PROJECT_ENVIRONMENT
 # - enable bytecode compilation for faster startup
-# - disable downloading any additional packages
+# - use the python of the builder image (ubuntu 24.04 ships 3.12), never download one
 # - use copy mode for linking instead of symlinking (because we mount to /src temporarily)
 ENV PATH="/dolmos/bin:$PATH" \
     VIRTUAL_ENV='/dolmos' \
     UV_PROJECT_ENVIRONMENT='/dolmos' \
     UV_COMPILE_BYTECODE=1 \
-    UV_PYTHON=python3.13 \
+    UV_PYTHON=python3.12 \
     UV_PYTHON_DOWNLOADS=never \
     UV_LINK_MODE=copy
 
