@@ -13,16 +13,16 @@ from z3 import (
     ZeroExt,
 )
 
-from halmos.__main__ import mk_block
-from halmos.bitvec import HalmosBitVec as BV
-from halmos.bytevec import ByteVec
-from halmos.exceptions import (
+from dolmos.__main__ import mk_block
+from dolmos.bitvec import DolmosBitVec as BV
+from dolmos.bytevec import ByteVec
+from dolmos.exceptions import (
     InvalidJumpDestError,
     InvalidOpcode,
     OutOfGasError,
     StackUnderflowError,
 )
-from halmos.sevm import (
+from dolmos.sevm import (
     SEVM,
     CallContext,
     Contract,
@@ -40,7 +40,7 @@ from halmos.sevm import (
     uint160,
     uint256,
 )
-from halmos.utils import EVM
+from dolmos.utils import EVM
 
 caller = BitVec("msg_sender", 160)
 origin = BitVec("tx_origin", 160)

@@ -528,7 +528,7 @@
                 "num_bounded_loops": null
             },
             {
-                "name": "check_call0_halmos_exception()",
+                "name": "check_call0_dolmos_exception()",
                 "exitcode": 3,
                 "num_models": 0,
                 "models": null,
@@ -555,7 +555,7 @@
                 "num_bounded_loops": null
             },
             {
-                "name": "check_call1_halmos_exception(uint256)",
+                "name": "check_call1_dolmos_exception(uint256)",
                 "exitcode": 3,
                 "num_models": 0,
                 "models": null,
@@ -582,7 +582,7 @@
                 "num_bounded_loops": null
             },
             {
-                "name": "check_create_halmos_exception()",
+                "name": "check_create_dolmos_exception()",
                 "exitcode": 3,
                 "num_models": 0,
                 "models": null,
@@ -1373,991 +1373,6 @@
             {
                 "name": "check_externalGetter(uint256)",
                 "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            }
-        ],
-        "test/HalmosCheatCode.t.sol:HalmosCheatCodeTest": [
-            {
-                "name": "check_FailUnknownCheatcode()",
-                "exitcode": 3,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_SymbolLabel()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createAddress()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createBool()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createBytes()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createBytes32()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createBytes4_basic()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createBytes4_finds_selector()",
-                "exitcode": 1,
-                "num_models": 1,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createBytes_empty()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createInt()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createInt256()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createString()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createString_empty()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createUint()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createUint256()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_enableSymbolicStorage_fail()",
-                "exitcode": 1,
-                "num_models": 1,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_enableSymbolicStorage_nonexistent()",
-                "exitcode": 3,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_enableSymbolicStorage_pass(uint256)",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_address()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_address_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_bool()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_bool_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_bytes()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_bytes32()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_bytes32_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_bytes_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_exists()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_int()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_int_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_missing_fail()",
-                "exitcode": 5,
-                "num_models": null,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_address()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_address_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_address_array_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_address_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bool()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bool_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bool_array_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bool_without_env_var(bool)",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bytes()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bytes32()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bytes32_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bytes32_array_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bytes32_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bytes_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bytes_array_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_bytes_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_int(int256)",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_int_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_int_array_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_string()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_string_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_string_array_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_string_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_uint(uint256)",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_uint_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_or_uint_array_without_env_var()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_string()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_string_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_uint()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_env_uint_array()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_extract_string_argument_fail(string)",
-                "exitcode": 3,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomAddress()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomBool()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomBytes()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomBytes4()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomBytes8()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomBytes_empty()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomInt()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomInt256()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomUint()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_randomUint256()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_random_uint_range_concrete_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_random_uint_range_max_greaterthan_min_fail()",
-                "exitcode": 3,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_random_uint_range_symbolic_fail(uint256,uint256)",
-                "exitcode": 3,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_setArbitraryStorage_fail()",
-                "exitcode": 1,
-                "num_models": 1,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_setArbitraryStorage_nonexistent()",
-                "exitcode": 3,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_setArbitraryStorage_pass(uint256)",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_unsupported_cheatcode_fail()",
-                "exitcode": 3,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            }
-        ],
-        "test/HalmosCheatCode.t.sol:HalmosCreateCalldataTest": [
-            {
-                "name": "check_createCalldata_Beep_0_excluding_pure()",
-                "exitcode": 4,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Beep_0_including_pure()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Beep_1_excluding_pure()",
-                "exitcode": 4,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Beep_1_including_pure()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Beep_2_excluding_pure()",
-                "exitcode": 4,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Beep_2_including_pure()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Dummy_fail()",
-                "exitcode": 3,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Fallback()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_0_excluding_view_fail()",
-                "exitcode": 1,
-                "num_models": 18,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_0_excluding_view_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_0_including_view_fail()",
-                "exitcode": 1,
-                "num_models": 20,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_0_including_view_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_1_fail()",
-                "exitcode": 1,
-                "num_models": 18,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_1_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_2_excluding_view_fail()",
-                "exitcode": 1,
-                "num_models": 18,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_2_excluding_view_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_2_including_view_fail()",
-                "exitcode": 1,
-                "num_models": 20,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_2_including_view_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_3_fail()",
-                "exitcode": 1,
-                "num_models": 18,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_3_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_4_excluding_view_fail()",
-                "exitcode": 1,
-                "num_models": 18,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_4_excluding_view_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_4_including_view_fail()",
-                "exitcode": 1,
-                "num_models": 20,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_4_including_view_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_interface_excluding_view_fail()",
-                "exitcode": 1,
-                "num_models": 18,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_interface_excluding_view_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_interface_including_view_fail()",
-                "exitcode": 1,
-                "num_models": 20,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_Mock_interface_including_view_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_NestedArrays_1_fail()",
-                "exitcode": 1,
-                "num_models": 541,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_NestedArrays_1_pass()",
-                "exitcode": 0,
-                "num_models": 0,
-                "models": null,
-                "num_paths": null,
-                "time": null,
-                "num_bounded_loops": null
-            },
-            {
-                "name": "check_createCalldata_unknown_fail()",
-                "exitcode": 3,
                 "num_models": 0,
                 "models": null,
                 "num_paths": null,
@@ -4012,6 +3027,35 @@
                 "name": "check_Loop3Fail(uint256)",
                 "exitcode": 1,
                 "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
+        "test/Natspec.t.sol:NatspecTestLegacyTag": [
+            {
+                "name": "check_Loop3(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_Loop3Fail(uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_Loop4(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
                 "models": null,
                 "num_paths": null,
                 "time": null,
@@ -6762,6 +5806,991 @@
                 "name": "check_S((uint256,uint256[],uint256),(uint256,(uint256,uint256[],uint256),uint256[],(uint256,uint256[],uint256)[],uint256[1],(uint256,uint256[],uint256)[][])[])",
                 "exitcode": 1,
                 "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
+        "test/SvmCheatCode.t.sol:SvmCheatCodeTest": [
+            {
+                "name": "check_FailUnknownCheatcode()",
+                "exitcode": 3,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_SymbolLabel()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createAddress()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createBool()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createBytes()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createBytes32()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createBytes4_basic()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createBytes4_finds_selector()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createBytes_empty()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createInt()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createInt256()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createString()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createString_empty()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createUint()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createUint256()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_enableSymbolicStorage_fail()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_enableSymbolicStorage_nonexistent()",
+                "exitcode": 3,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_enableSymbolicStorage_pass(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_address()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_address_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_bool()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_bool_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_bytes()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_bytes32()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_bytes32_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_bytes_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_exists()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_int()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_int_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_missing_fail()",
+                "exitcode": 5,
+                "num_models": null,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_address()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_address_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_address_array_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_address_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bool()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bool_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bool_array_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bool_without_env_var(bool)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bytes()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bytes32()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bytes32_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bytes32_array_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bytes32_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bytes_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bytes_array_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_bytes_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_int(int256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_int_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_int_array_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_string()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_string_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_string_array_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_string_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_uint(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_uint_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_or_uint_array_without_env_var()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_string()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_string_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_uint()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_env_uint_array()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_extract_string_argument_fail(string)",
+                "exitcode": 3,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomAddress()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomBool()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomBytes()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomBytes4()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomBytes8()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomBytes_empty()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomInt()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomInt256()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomUint()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_randomUint256()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_random_uint_range_concrete_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_random_uint_range_max_greaterthan_min_fail()",
+                "exitcode": 3,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_random_uint_range_symbolic_fail(uint256,uint256)",
+                "exitcode": 3,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_setArbitraryStorage_fail()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_setArbitraryStorage_nonexistent()",
+                "exitcode": 3,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_setArbitraryStorage_pass(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_unsupported_cheatcode_fail()",
+                "exitcode": 3,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
+        "test/SvmCheatCode.t.sol:SvmCreateCalldataTest": [
+            {
+                "name": "check_createCalldata_Beep_0_excluding_pure()",
+                "exitcode": 4,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Beep_0_including_pure()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Beep_1_excluding_pure()",
+                "exitcode": 4,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Beep_1_including_pure()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Beep_2_excluding_pure()",
+                "exitcode": 4,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Beep_2_including_pure()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Dummy_fail()",
+                "exitcode": 3,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Fallback()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_0_excluding_view_fail()",
+                "exitcode": 1,
+                "num_models": 18,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_0_excluding_view_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_0_including_view_fail()",
+                "exitcode": 1,
+                "num_models": 20,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_0_including_view_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_1_fail()",
+                "exitcode": 1,
+                "num_models": 18,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_1_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_2_excluding_view_fail()",
+                "exitcode": 1,
+                "num_models": 18,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_2_excluding_view_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_2_including_view_fail()",
+                "exitcode": 1,
+                "num_models": 20,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_2_including_view_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_3_fail()",
+                "exitcode": 1,
+                "num_models": 18,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_3_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_4_excluding_view_fail()",
+                "exitcode": 1,
+                "num_models": 18,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_4_excluding_view_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_4_including_view_fail()",
+                "exitcode": 1,
+                "num_models": 20,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_4_including_view_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_interface_excluding_view_fail()",
+                "exitcode": 1,
+                "num_models": 18,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_interface_excluding_view_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_interface_including_view_fail()",
+                "exitcode": 1,
+                "num_models": 20,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_Mock_interface_including_view_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_NestedArrays_1_fail()",
+                "exitcode": 1,
+                "num_models": 541,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_NestedArrays_1_pass()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_createCalldata_unknown_fail()",
+                "exitcode": 3,
+                "num_models": 0,
                 "models": null,
                 "num_paths": null,
                 "time": null,

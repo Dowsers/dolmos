@@ -29,8 +29,8 @@ contract StorageSlotTest {
         assert(map[one] == value); // sload with keccak expression
     }
 
-    // this test passes because halmos internally precomputes the slots for m[0] and m[1], for any m where slot(m) < 256.
-    // in general, however, directly initializing storage with a precomputed hash is not supported by halmos. see the test below.
+    // this test passes because dolmos internally precomputes the slots for m[0] and m[1], for any m where slot(m) < 256.
+    // in general, however, directly initializing storage with a precomputed hash is not supported by dolmos. see the test below.
     function check_keccak_slot_2_pass(uint value) public {
         sstore(slot_map_one, value); // sstore with precomputed hash
 
@@ -38,7 +38,7 @@ contract StorageSlotTest {
         assert(map[one] == value); // sload with keccak expression
     }
 
-    // this test failed due to m[2] beyond the scope of halmos internal precomputation. see the above test for comparison.
+    // this test failed due to m[2] beyond the scope of dolmos internal precomputation. see the above test for comparison.
     function check_keccak_slot_2_fail(uint value) public {
         sstore(slot_map_two, value); // sstore with precomputed hash
 

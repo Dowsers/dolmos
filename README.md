@@ -1,33 +1,28 @@
 # Dolmos
 
-[![License](https://img.shields.io/github/license/HugoDowsers/dolmos)](LICENSE)
-[![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2FHugoDowsers%2Fdolmos%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](pyproject.toml)
-[![upstream](https://img.shields.io/badge/fork%20of-a16z%2Fhalmos-blue)](https://github.com/a16z/halmos)
+[![License](https://img.shields.io/github/license/Dowsers/dolmos)](LICENSE)
+[![Python Version from PEP 621 TOML](https://img.shields.io/python/required-version-toml?tomlFilePath=https%3A%2F%2Fraw.githubusercontent.com%2FDowsers%2Fdolmos%2Frefs%2Fheads%2Fmain%2Fpyproject.toml)](pyproject.toml)
 
-Dolmos is the [Dowsers](https://github.com/Dowsers) fork of
-[a16z/halmos](https://github.com/a16z/halmos), a _symbolic testing_ tool for EVM
-smart contracts driven by Foundry tests.
+Dolmos is a _symbolic testing_ tool for EVM smart contracts, driven by
+Foundry-style tests, maintained by [Dowsers](https://github.com/Dowsers) for its
+audit and formal verification work. Tests look like fuzz tests, but inputs are
+symbolic: a passing test holds for every input, and a failing one comes with a
+counterexample.
 
-The fork exists to carry fixes and EVM coverage we need for audit work, ahead of
-(or instead of) upstream. Everything upstream does, dolmos does; this README only
-documents what differs. For the tool itself, read the upstream
-[getting started guide](docs/getting-started.md) and the
-[examples](examples/README.md) — they apply unchanged, modulo the command name.
+Start with the [getting started guide](docs/getting-started.md) and the
+[examples](examples/README.md).
 
-The command is `dolmos`. The Python package is still named `halmos`, so
-`import halmos` and rebases on upstream keep working.
+## Features
 
-## What this fork adds
+On top of symbolic execution of Solidity (and Vyper) tests with `check_*` and
+`invariant_*` functions, dolmos provides the following.
 
-**CREATE address derivation and account nonces.** Upstream assigns CREATE
-addresses from a counter and does not model nonces at all, so a contract that
-predicts its own deployment address disagrees with the executor. Every CREATE3
-library breaks that way ([a16z/halmos#217](https://github.com/a16z/halmos/issues/217)):
-all paths revert and the test reports `paths: 0`. Dolmos tracks nonces (1 for a
+**CREATE address derivation and account nonces.** Accounts carry nonces (1 for a
 newly created account per EIP-161, incremented by CREATE and CREATE2 even when
-the creation fails) and derives the address from `keccak256(rlp([sender, nonce]))`,
-mapped to a magic address exactly as CREATE2 already was. Both sides of the
-prediction then agree.
+the creation fails), and CREATE addresses are derived from
+`keccak256(rlp([sender, nonce]))`, mapped to a magic address as for CREATE2. A
+contract that predicts its own deployment address, as every CREATE3 library
+does, therefore agrees with the executor.
 
 **Nonce cheatcodes.** `vm.getNonce`, `vm.setNonce`, `vm.setNonceUnsafe` and
 `vm.resetNonce`, with foundry's semantics: `setNonce` only raises a nonce,
@@ -37,23 +32,21 @@ prediction then agree.
 logarithmic symbolic encoding, plus `BLOBHASH` and `BLOBBASEFEE` (EIP-4844).
 
 **Vyper.** Test contracts can be written in Vyper, and Solidity tests can target
-Vyper contracts. Upstream only reads the `.sol` directories of the build output,
-and forge's Vyper artifacts have no AST, no metadata and an empty
-`methodIdentifiers`; dolmos reads `.vy`/`.vyi` artifacts too, computes the
-selectors from the ABI, takes the source path and compiler version from forge's
-cache, and makes Vyper contracts visible to Solidity tests (deployed code, ABI
-for invariant targets and traces, including contracts with immutables).
+Vyper contracts. forge's Vyper artifacts have no AST, no metadata and an empty
+`methodIdentifiers`; dolmos reads `.vy`/`.vyi` artifacts, computes the selectors
+from the ABI, takes the source path and compiler version from forge's cache, and
+makes Vyper contracts visible to Solidity tests (deployed code, ABI for
+invariant targets and traces, including contracts with immutables).
 `vm.getCode` accepts `Foo.vy`, `src/Foo.vy` and `Foo.vy:Foo`.
 
 A Vyper test looks like a Solidity one: `setUp()` and `check_*`/`invariant_*`
 functions, with cheatcodes called through an interface at
 `0x7109709ECfa91a80626fF3989D68f67F5b1DD12D`. Use `assert ..., UNREACHABLE` for
-properties: it compiles to the INVALID opcode, which the new
-`--invalid-as-failure` option reports as a failure, even when it is hit in a
-nested call and bubbles up as an empty revert. A plain `assert` is an empty
-revert, indistinguishable from a `require`, so the path is silently discarded.
-The `vm.assert*` cheatcodes work as well. `@custom:halmos` annotations go in the
-module and function docstrings.
+properties: it compiles to the INVALID opcode, which the `--invalid-as-failure`
+option reports as a failure, even when it is hit in a nested call and bubbles up
+as an empty revert. A plain `assert` is an empty revert, indistinguishable from
+a `require`, so the path is silently discarded. The `vm.assert*` cheatcodes work
+as well. `@custom:dolmos` annotations go in the module and function docstrings.
 
 When the build contains Vyper contracts, `--storage-layout generic` (Vyper
 computes `HashMap` slots as `keccak256(slot . key)`) and `--invalid-as-failure`
@@ -61,33 +54,30 @@ become the defaults; a value set in `dolmos.toml`, an annotation or on the
 command line still wins. Coverage reports do not include Vyper code, since forge
 emits no source maps for it. See `tests/vyper` for examples.
 
-**CLI.** The command is `dolmos`; `halmos` is no longer installed. A project
-config file may be named `dolmos.toml` (read before `halmos.toml`), `--help` and
-`--version` report the name the command was invoked with, and `-test` is a short
-alias for `--match-test` (`dolmos -test setNonce`).
+## Compatibility with halmos
 
-## Not available in this fork
+Dolmos is derived from halmos (see [NOTICE](NOTICE)) and accepts the names used
+by test suites written for it, so they should run without changes:
 
-These exist upstream and are **not** provided here yet:
+| halmos | dolmos | |
+|---|---|---|
+| `@custom:halmos` | `@custom:dolmos` | both accepted, in contracts and functions |
+| `halmos.toml` | `dolmos.toml` | `dolmos.toml` is read first |
+| `HALMOS_ALLOW_DOWNLOAD` | `DOLMOS_ALLOW_DOWNLOAD` | both honored |
+| `halmos-cheatcodes` | unchanged | the `svm.*` cheatcodes of this library are supported |
 
-| | status |
-|---|---|
-| PyPI package (`pip install dolmos`) | not published — install from source |
-| `uv tool install dolmos` | not available — depends on the PyPI package |
-| Docker image (`ghcr.io/...`) | not built — no published image |
-| Prebuilt release binaries | none |
-| CI workflows | inherited from upstream and currently broken on this fork, since they invoke the `halmos` command and the a16z docker image |
-
-Until then, install from source as described below. If you want the packaged
-experience today, use upstream halmos instead — the two can coexist in the same
-environment, they no longer share a command name.
+Some things do change: the command and the Python package are named `dolmos`
+(`import dolmos`), symbolic variables in counterexamples are prefixed with
+`dolmos_`, and solvers downloaded on demand are cached in `~/.dolmos/solvers`.
 
 ## Installation
 
-Requires Python ≥ 3.11 and [Foundry](https://getfoundry.sh).
+Requires Python ≥ 3.11 and [Foundry](https://getfoundry.sh). Dolmos is not
+published on PyPI and has no prebuilt binaries or published Docker image yet, so
+install it from source:
 
 ```sh
-git clone https://github.com/HugoDowsers/dolmos.git
+git clone https://github.com/Dowsers/dolmos.git
 cd dolmos
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -e .
@@ -101,10 +91,11 @@ pip install -e ".[dev]"
 pre-commit install
 ```
 
-If a `halmos` command lingers in your `PATH` after installing, it comes from a
-separate installation (typically a `pip install --user` one). Check with
-`type -a halmos`, and `python -c "import halmos, os; print(os.path.dirname(halmos.__file__))"`
-to confirm which source tree is actually being imported.
+The Docker images are built by the `publish-solvers-package`,
+`publish-dolmos-builder-package` and `publish-dolmos-package` workflows, in that
+order, and pushed to `ghcr.io/<owner>/`. The workflows that run tests inside
+those images (`test-ffi`, `test-long`, `test-external`) need them to be
+published first.
 
 ## Usage
 
@@ -120,15 +111,22 @@ dolmos -test <regex>          # alias for --match-test
 dolmos --match-contract <regex>
 ```
 
-Options can be set per project in `dolmos.toml` at the project root, with the
-same format as upstream's `halmos.toml`:
+Options can be set per project in `dolmos.toml` at the project root:
 
 ```toml
 [global]
 solver-timeout-assertion = 10000
 ```
 
+`python -m dolmos.config` prints every option with its default value, in that
+format. Warnings link to their explanation in [docs/warnings.md](docs/warnings.md).
+
 ## Tests
+
+```sh
+pytest                                   # unit tests and integration tests
+pytest tests/test_dolmos.py -k "not long"
+```
 
 The regression suite lives in `tests/regression` and runs with both forge (real
 EVM) and dolmos (symbolic):
@@ -139,51 +137,44 @@ forge build
 dolmos
 ```
 
-Two notes on the toolchain. The suite sets `evm_version = 'osaka'` because of
-the CLZ tests, and `test/OpCodesCLZ.sol` needs a solc recent enough to accept
-`clz()` in assembly — an older compiler fails with `Function "clz" not found`.
-And `test/Invalid.t.sol`, inherited from upstream, requires solc `^0.5.2`; if
-that version is unavailable, `forge build` stops there.
+A few notes on the toolchain:
 
-The Vyper tests live in `tests/vyper` and need the `vyper` compiler in `PATH`
-(`pip install vyper`); pytest skips them otherwise.
+- The suite sets `evm_version = 'osaka'` because of the CLZ tests, and
+  `test/OpCodesCLZ.sol` needs a solc recent enough to accept `clz()` in assembly
+  (0.8.31 or later); an older compiler fails with `Function "clz" not found`.
+- `test/Invalid.t.sol` requires solc `^0.5.2`; if that version is unavailable,
+  `forge build` stops there.
+- `test/Arith.t.sol` uses the `bitwuzla-abs` solver; set
+  `DOLMOS_ALLOW_DOWNLOAD=1` to let dolmos download it.
+- The Vyper tests live in `tests/vyper` and need the `vyper` compiler in `PATH`
+  (`pip install vyper`); pytest skips them otherwise.
 
 ## Contributing
 
-Fixes that are not specific to Dowsers should go upstream: branch off
-`upstream/main`, keep the branch free of any fork-specific change, and open the
-pull request against
-[a16z/halmos](https://github.com/a16z/halmos). The CREATE3 work above is written
-that way and is meant to be proposed.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
-
-Work in progress, not merged here yet:
 
 - MODEXP precompile (EIP-198): concrete evaluation and a typed uninterpreted
   function instead of the current opaque one
 - performance: skip the Z3 `substitute()` traversal when no free variable
   matches, bound the concurrency of solver subprocesses, memoize invariant
   target resolution
-- support multiple `setUp()` states ([a16z/halmos#186](https://github.com/a16z/halmos/issues/186))
-- docker image and a published package
+- support multiple `setUp()` states
+- a published package and Docker image
 
 ## License
 
-AGPL-3.0, inherited from upstream. See [LICENSE](LICENSE).
+AGPL-3.0, see [LICENSE](LICENSE). Dolmos is a modified version of another
+AGPL-3.0 program; [NOTICE](NOTICE) gives its origin and the notices that come
+with it.
 
 ## Disclaimer
 
-_These smart contracts and code are being provided as is. No guarantee,
-representation or warranty is being made, express or implied, as to the safety
-or correctness of the user interface or the smart contracts and code. They have
-not been audited and as such there can be no assurance they will work as
-intended, and users may experience delays, failures, errors, omissions or loss
-of transmitted information. THE SMART CONTRACTS AND CODE CONTAINED HEREIN ARE
-FURNISHED AS IS, WHERE IS, WITH ALL FAULTS AND WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING ANY WARRANTY OF MERCHANTABILITY, NON-INFRINGEMENT
-OR FITNESS FOR ANY PARTICULAR PURPOSE._
-
-This fork is maintained by Dowsers and is not affiliated with or endorsed by
-a16z. The upstream disclaimer above applies to the original work; the same lack
-of warranty applies to the changes made here.
+_This software and the smart contracts in this repository are provided as is,
+without warranty of any kind, express or implied, including any warranty of
+merchantability, non-infringement or fitness for a particular purpose. They have
+not been audited. Passing symbolic tests is not a proof that a contract is free
+of bugs. Nothing in this repository is investment or legal advice. See
+[NOTICE](NOTICE) for the disclaimers attached to the original work this code is
+derived from._

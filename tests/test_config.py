@@ -4,7 +4,7 @@ import pickle
 
 import pytest
 
-from halmos.config import (
+from dolmos.config import (
     Config,
     ConfigSource,
     ParseArrayLengths,
@@ -14,7 +14,7 @@ from halmos.config import (
     default_config,
     resolve_config_files,
 )
-from halmos.config import (
+from dolmos.config import (
     toml_parser as get_toml_parser,
 )
 

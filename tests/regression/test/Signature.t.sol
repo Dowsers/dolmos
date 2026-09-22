@@ -398,7 +398,7 @@ contract SignatureTest is SymTest, Test {
     }
 
     // TODO: remove the following option after fixing issue in case of empty keyName
-    /// @custom:halmos --array-lengths keyName={65,1024}
+    /// @custom:dolmos --array-lengths keyName={65,1024}
     function check_makeAddrAndKey_vmsign_ecrecover_e2e_symbolic(
         string memory keyName,
         bytes32 digest

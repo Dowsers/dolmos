@@ -2,8 +2,8 @@ import json
 
 import pytest
 
-from halmos.__main__ import is_invalid_opcode_found, load_config, with_vyper_defaults
-from halmos.build import (
+from dolmos.__main__ import is_invalid_opcode_found, load_config, with_vyper_defaults
+from dolmos.build import (
     VYPER_VERSION_PREFIX,
     build_out_view,
     build_output_iterator,
@@ -16,14 +16,14 @@ from halmos.build import (
     parse_natspec,
     parse_vyper_docstrings,
 )
-from halmos.bytevec import ByteVec
-from halmos.config import ConfigSource
-from halmos.exceptions import InvalidOpcode, Revert
+from dolmos.bytevec import ByteVec
+from dolmos.config import ConfigSource
+from dolmos.exceptions import InvalidOpcode, Revert
 
 VYPER_SOURCE = '''# pragma version ~=0.4.3
 """
 @title Test
-@custom:halmos --loop 4
+@custom:dolmos --loop 4
 """
 
 counter: uint256
@@ -44,7 +44,7 @@ def check_multiline(
     y: DynArray[uint256, 3],
 ) -> uint256:  # trailing comment
     \'\'\'
-    @custom:halmos --loop 5
+    @custom:dolmos --loop 5
     \'\'\'
     return x
 

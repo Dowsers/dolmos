@@ -1,7 +1,7 @@
 # pragma version ~=0.4.3
 """
 @title Symbolic tests written in Vyper
-@custom:halmos --loop 3
+@custom:dolmos --loop 3
 """
 
 interface ICounter:
@@ -66,6 +66,6 @@ def check_bytes_default(data: Bytes[100]):
 @external
 def check_bytes_annotated(data: Bytes[100]):
     """
-    @custom:halmos --default-bytes-lengths 0,10
+    @custom:dolmos --default-bytes-lengths 0,10
     """
     assert len(data) != 65, UNREACHABLE

@@ -1,12 +1,12 @@
 import pytest
 
-from halmos.solve import ModelVariable, parse_model_str
+from dolmos.solve import ModelVariable, parse_model_str
 
 
 @pytest.mark.parametrize(
     "full_name",
     [
-        "halmos_y_uint256_043cfd7_01",
+        "dolmos_y_uint256_043cfd7_01",
         "p_y_uint256_043cfd7_01",
     ],
 )
@@ -32,7 +32,7 @@ def test_smtlib_z3_bv_output(full_name):
 @pytest.mark.parametrize(
     "full_name",
     [
-        "halmos_z_uint256_cabf047_02",
+        "dolmos_z_uint256_cabf047_02",
         "p_z_uint256_cabf047_02",
     ],
 )
@@ -58,7 +58,7 @@ def test_smtlib_yices_binary_output(full_name):
 @pytest.mark.parametrize(
     "full_name",
     [
-        "halmos_z_uint256_11ce021_08",
+        "dolmos_z_uint256_11ce021_08",
         "p_z_uint256_11ce021_08",
     ],
 )
@@ -81,7 +81,7 @@ def test_smtlib_yices_decimal_output(full_name):
 @pytest.mark.parametrize(
     "full_name",
     [
-        "halmos_x_uint8_043cfd7_01",
+        "dolmos_x_uint8_043cfd7_01",
         "p_x_uint8_043cfd7_01",
     ],
 )

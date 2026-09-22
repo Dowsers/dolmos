@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from halmos.mapper import AstNode, ContractMappingInfo, Mapper, SingletonMeta
+from dolmos.mapper import AstNode, ContractMappingInfo, Mapper, SingletonMeta
 
 
 @pytest.fixture

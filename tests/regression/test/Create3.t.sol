@@ -4,7 +4,7 @@ pragma solidity >=0.8.0 <0.9.0;
 import "forge-std/Test.sol";
 
 /// @notice minimal CREATE3 library, as found in 0xsequence/create3, solmate and solady
-/// @dev see https://github.com/a16z/halmos/issues/217
+/// @dev see upstream halmos issue #217
 library Create3 {
     bytes internal constant PROXY_CHILD_BYTECODE = hex"67363d3d37363d34f03d5260086018f3";
 

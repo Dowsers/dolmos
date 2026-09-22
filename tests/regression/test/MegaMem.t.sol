@@ -6,7 +6,7 @@ import {console2} from "forge-std/console2.sol";
 
 import {SymTest} from "halmos-cheatcodes/SymTest.sol";
 
-/// @dev This checks that halmos can handle large memory operations without raising
+/// @dev This checks that dolmos can handle large memory operations without raising
 /// internal errors like "cannot fit 'int' into an index-sized integer".
 /// Instead, we should catch the error and revert the current path, but letting other
 /// paths continue. This is why these tests do a symbolic coinflip, we case split:

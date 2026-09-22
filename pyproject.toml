@@ -6,14 +6,14 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dolmos"
-description = "A symbolic testing tool for EVM smart contracts (Dowsers fork of halmos)"
+description = "A symbolic testing tool for EVM smart contracts"
 readme = "README.md"
+# dolmos is derived from other authors' work, see NOTICE
 authors = [
-    { name="a16z crypto" },
+    { name="Dowsers SAS" },
 ]
 maintainers = [
-    { name="Daejun Park" },
-    { name="karmacoma <karma@coma.lol>" },
+    { name="Dowsers SAS" },
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -36,11 +36,10 @@ dependencies = [
 dynamic = ["version"]
 
 [project.scripts]
-dolmos = "halmos.__main__:main"
+dolmos = "dolmos.__main__:main"
 
 [project.urls]
-"Homepage" = "https://github.com/HugoDowsers/dolmos"
-"Upstream" = "https://github.com/a16z/halmos"
+"Homepage" = "https://github.com/Dowsers/dolmos"
 
 # development dependencies, can be installed with
 #   uv sync --extra dev
