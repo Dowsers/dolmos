@@ -18,11 +18,13 @@ RUN mkdir -p /root/.foundry/bin /root/.foundry/share/man/man1
 # Add foundry binaries to PATH
 ENV PATH="/root/.foundry/bin:${PATH}"
 
-# Download and run foundryup
+# Download foundryup and install a pinned foundry version, so that the images (and
+# the CI jobs that use them) do not change behaviour when foundry releases
+ARG FOUNDRY_VERSION=v1.8.3
 RUN curl -sSf -L https://raw.githubusercontent.com/foundry-rs/foundry/master/foundryup/foundryup \
     -o /root/.foundry/bin/foundryup && \
     chmod +x /root/.foundry/bin/foundryup && \
-    foundryup
+    foundryup --install ${FOUNDRY_VERSION}
 
 # Set a nicer prompt
 ENV IMAGE_NAME=dolmos-builder

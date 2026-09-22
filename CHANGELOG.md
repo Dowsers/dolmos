@@ -7,7 +7,7 @@ All notable changes to dolmos are documented here. The format follows
 
 ## [Unreleased]
 
-## [0.1.0] - YYYY-MM-DD
+## [0.1.0] - 2026-09-22
 
 First release of dolmos.
 
