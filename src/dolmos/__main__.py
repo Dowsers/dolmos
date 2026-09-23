@@ -1325,6 +1325,9 @@ def run_test(ctx: FunctionContext) -> TestResult:
         )
         debug("\n".join(jumpid_str(x) for x in logs.bounded_loops))
 
+    for lasso_result in logs.lassos:
+        print(f"    {lasso_result.summary()}")
+
     # return test result
     num_cexes = len(ctx.valid_counterexamples) + len(ctx.invalid_counterexamples)
     if args.minimal_json_output:

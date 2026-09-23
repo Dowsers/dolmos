@@ -316,6 +316,29 @@ class Config:
         metavar="MAX_BOUND",
     )
 
+    dump_lassos: str = arg(
+        help="when the loop unrolling bound is reached, export the loop as a lasso program (PaSTTeL JSON format) in the given directory",
+        global_default=None,
+        metavar="LASSO_DIR",
+    )
+
+    pasttel: str = arg(
+        help="path to the PaSTTeL binary: run the termination analysis on each exported lasso (requires --dump-lassos)",
+        global_default=None,
+        metavar="PASTTEL_BINARY",
+    )
+
+    lasso_exact_constants: bool = arg(
+        help="encode wrap-arounds exactly in exported lassos, with 2^256 constants (for termination tools with exact arithmetic; PaSTTeL needs the default small-constants encoding)",
+        global_default=False,
+    )
+
+    pasttel_timeout: int = arg(
+        help="time limit in seconds for each PaSTTeL run",
+        global_default=30,
+        metavar="SECONDS",
+    )
+
     width: int = arg(
         help="set the max number of paths; 0 means unlimited",
         global_default=0,

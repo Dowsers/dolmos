@@ -52,3 +52,6 @@ Some paths were cut at the loop unrolling bound (`--loop`), so they have not
 been fully explored and bugs beyond that bound can be missed. Raise `--loop`
 (globally or with a `@custom:dolmos --loop N` annotation) if the loops in
 question are bounded by a small constant.
+
+To find out whether these loops terminate, export them with `--dump-lassos` and
+analyse them with PaSTTeL: see [loop-termination.md](loop-termination.md).

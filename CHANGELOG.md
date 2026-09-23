@@ -18,6 +18,12 @@ All notable changes to dolmos are documented here. The format follows
 - multiple setup states: when `setUp()` has several feasible successful paths,
   each test and each invariant test sequence is run from every one of them,
   instead of failing with "Multiple paths were found in setUp()" (halmos#186)
+- experimental: `--dump-lassos DIR` exports each loop that reaches the unrolling
+  bound as a lasso program, and `--pasttel BINARY` analyses it with PaSTTeL
+  (termination proof with a ranking function, or non-termination). Lassos use
+  a small-constants encoding by default, because PaSTTeL computes with doubles
+  and is unsound on 2^256 constants; `--lasso-exact-constants` gives the exact
+  encoding. See docs/loop-termination.md
 
 ### Fixed
 

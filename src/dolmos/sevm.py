@@ -54,7 +54,7 @@ from z3 import (
 )
 from z3.z3util import is_expr_var
 
-from dolmos import precompiles
+from dolmos import lasso, precompiles
 from dolmos.bitvec import ONE, ZERO, is_power_of_two
 from dolmos.bitvec import DolmosBitVec as BV
 from dolmos.bitvec import DolmosBool as Bool
@@ -368,6 +368,14 @@ def is_rlp_create_preimage(data: Bytes, size: int) -> bool:
         and isinstance(addr_prefix, int)
         and list_prefix == 0xC0 + size - 1
         and addr_prefix == 0x94
+    )
+
+
+def lasso_jumpid_tokens(ex) -> tuple:
+    """Jump destinations below the operands of the JUMPI about to be executed."""
+    valid_jumpdests = ex.pgm.valid_jumpdests()
+    return tuple(
+        value for x in ex.st.stack[:-2] if (value := x.value) in valid_jumpdests
     )
 
 
@@ -1294,6 +1302,8 @@ class Exec:  # an execution path
         )
         self.st = kwargs["st"]
         self.jumpis = kwargs["jumpis"]
+        # stack snapshots at symbolic JUMPIs, only recorded with --dump-lassos
+        self.loop_snapshots = kwargs.get("loop_snapshots") or {}
         self.addresses_to_delete = kwargs.get("addresses_to_delete") or set()
         #
         self.path = kwargs["path"]
@@ -2184,9 +2194,11 @@ class DolmosLogs:
 
     def __init__(self) -> None:
         self.bounded_loops = []
+        self.lassos: list[lasso.LassoResult] = []
 
     def extend(self, logs: "DolmosLogs") -> None:
         self.bounded_loops.extend(logs.bounded_loops)
+        self.lassos.extend(logs.lassos)
 
 
 @dataclass(slots=True, eq=False, order=False)
@@ -2219,6 +2231,13 @@ class SEVM:
         self.options = options
         self.fun_info = fun_info
         self.logs = DolmosLogs()
+
+        # lasso extraction (--dump-lassos): the loop being probed, if any
+        self._probe = None
+        self._probe_steps = 0
+        self._probe_flags: set[str] = set()
+        self._lasso_count = 0
+        self._lassos_done: set = set()
 
         # init storage model
         is_generic = self.options.storage_layout == "generic"
@@ -2642,6 +2661,7 @@ class SEVM:
                 new_ex.insn = ex.insn
                 new_ex.st = deepcopy(ex.st)
                 new_ex.jumpis = deepcopy(ex.jumpis)
+                new_ex.loop_snapshots = dict(ex.loop_snapshots)
 
                 returndata = subcall.output.data
                 copy_returndata_to_memory(returndata, ret_loc, ret_size, new_ex)
@@ -3006,6 +3026,7 @@ class SEVM:
             new_ex.insn = ex.insn
             new_ex.st = deepcopy(ex.st)
             new_ex.jumpis = deepcopy(ex.jumpis)
+            new_ex.loop_snapshots = dict(ex.loop_snapshots)
 
             if subcall.is_stuck():
                 # internal errors abort the current path,
@@ -3110,6 +3131,11 @@ class SEVM:
         jid = ex.jumpid()
         visited = ex.jumpis.get(jid, {True: 0, False: 0})
 
+        dump_lassos = self.options.dump_lassos and self._probe is None
+        if is_symbolic_cond and dump_lassos:
+            prev_snapshot = ex.loop_snapshots.get(jid)
+            ex.loop_snapshots[jid] = lasso.LoopSnapshot(tuple(ex.st.stack), cond_true)
+
         if is_symbolic_cond:
             # for loop unrolling
             follow_true = potential_true and visited[True] < self.options.loop
@@ -3120,6 +3146,18 @@ class SEVM:
 
             if unroll_limit_reached_true or unroll_limit_reached_false:
                 self.logs.bounded_loops.append(jid)
+
+                if dump_lassos:
+                    for direction, reached in (
+                        (True, unroll_limit_reached_true),
+                        (False, unroll_limit_reached_false),
+                    ):
+                        if reached and (jid, direction) not in self._lassos_done:
+                            self._lassos_done.add((jid, direction))
+                            result = self.extract_lasso(
+                                ex, jid, direction, target, cond_true, prev_snapshot
+                            )
+                            self.logs.lassos.append(result)
 
                 # rendering ex.path to string can be expensive, so only do it if debug is enabled
                 if self.options.debug:
@@ -3169,6 +3207,227 @@ class SEVM:
                 }
             stack.push(new_ex_false)
 
+    def extract_lasso(
+        self,
+        ex: Exec,
+        jid: JumpID,
+        direction: bool,
+        target: int,
+        cond: BoolRef,
+        prev: "lasso.LoopSnapshot | None",
+    ) -> "lasso.LassoResult":
+        """
+        Exports the loop at `jid` as a lasso program (see dolmos.lasso), and
+        optionally runs PaSTTeL on it. `ex` is at the JUMPI, operands popped.
+        """
+        result = lasso.LassoResult(
+            test=self.fun_info.sig, jumpid=jumpid_str(jid), direction=direction
+        )
+        try:
+            if prev is None:
+                raise lasso.LassoError("no snapshot of the previous iteration")
+
+            stack_now = list(ex.st.stack)
+            if len(prev.stack) != len(stack_now):
+                raise lasso.LassoError("the stack height changes between iterations")
+
+            carried = [
+                i
+                for i in range(len(stack_now))
+                if not lasso.same_term(prev.stack[i], stack_now[i])
+            ]
+
+            self._lasso_count += 1
+            uid = self._lasso_count
+
+            # extend the loop variables until the generalized iteration is closed
+            for _ in range(3):
+                bodies, extra, flags = self._generalized_iteration(
+                    ex, jid, carried, direction, target, uid
+                )
+                if not extra:
+                    break
+                carried = sorted(set(carried) | extra)
+            else:
+                raise lasso.LassoError("the loop variables could not be determined")
+
+            if not bodies:
+                raise lasso.LassoError(
+                    "no path of the loop body returns to the loop head"
+                    + (f" ({'; '.join(sorted(flags))})" if flags else "")
+                )
+
+            result.warnings = sorted(flags)
+
+            # the cut point is right after the JUMPI: the stem ends by taking
+            # the loop branch, and each iteration ends by taking it again
+            loop_vars = [f"{lasso.LOOP_VAR_PREFIX}{uid}_{i}" for i in carried]
+            initial_values = [lasso.as_z3(stack_now[i]) for i in carried]
+            widths = [256] * len(loop_vars)
+
+            stem_context = [*ex.path.conditions, lasso.branch_taken(cond, direction)]
+            stem_conditions = lasso.slice_conditions(stem_context, initial_values)
+            result.approximate, lasso_json = lasso.build_lasso(
+                loop_vars,
+                widths,
+                initial_values,
+                stem_conditions,
+                None,
+                bodies,
+                exact_constants=self.options.lasso_exact_constants,
+                stem_context=stem_context,
+                complete=not flags,
+                prover_timeout_ms=int(self.options.solver_timeout_branching * 1000),
+            )
+
+            name = re.sub(
+                r"[^A-Za-z0-9_]+", "_", f"{self.fun_info.name}_{jumpid_str(jid)}"
+            )
+            name = f"{name}_{'t' if direction else 'f'}"
+            meta = {
+                "test": self.fun_info.sig,
+                "jumpid": jumpid_str(jid),
+                "loop_branch": direction,
+                "loop_bound": self.options.loop,
+                "loop_variables": {
+                    f"v{k}": f"stack[{i}]" for k, i in enumerate(carried)
+                },
+                "body_paths": len(bodies),
+                "encoding": (
+                    "exact" if self.options.lasso_exact_constants else "small-constants"
+                ),
+                "warnings": result.warnings,
+                "sound": not result.warnings,
+                # termination proofs are valid either way; non-termination
+                # witnesses are only meaningful for an exact lasso
+                "exact": not result.approximate and not result.warnings,
+            }
+            result.path = lasso.write_lasso(
+                self.options.dump_lassos, name, lasso_json, meta
+            )
+
+            if self.options.pasttel:
+                result.verdict, result.proof = lasso.run_pasttel(
+                    self.options.pasttel, result.path, self.options.pasttel_timeout
+                )
+
+        except lasso.LassoError as err:
+            result.error = str(err)
+        except Exception as err:  # the extraction must never break the test
+            result.error = f"{type(err).__name__}: {err}"
+            debug(f"lasso extraction failed: {err!r}")
+        finally:
+            self._probe = None
+
+        return result
+
+    def _generalized_iteration(
+        self,
+        ex: Exec,
+        jid: JumpID,
+        carried: list[int],
+        direction: bool,
+        target: int,
+        uid: int,
+    ) -> tuple[list["lasso.BodyPath"], set[int], set[str]]:
+        """
+        Runs one iteration of the loop from a state where the loop-carried stack
+        slots and the branching condition are fresh symbols, on a separate solver.
+        Returns the body paths, the stack slots that turned out to change as
+        well, and warning flags.
+        """
+        stack = list(ex.st.stack)
+        for i in carried:
+            stack[i] = BV(lasso.fresh_loop_var(i, uid))
+
+        timeout_ms = int(self.options.solver_timeout_branching * 1000)
+        path = Path(create_solver(timeout=timeout_ms))
+        path.extend_path(ex.path)
+        stem_ids = {c.get_id() for c in path.conditions}
+
+        gen_ex = Exec(
+            code=ex.code.copy(),
+            storage=deepcopy(ex.storage),
+            transient_storage=deepcopy(ex.transient_storage),
+            balance=ex.balance,
+            block=deepcopy(ex.block),
+            context=deepcopy(ex.context),
+            callback=None,  # leaving the frame ends the iteration
+            pgm=ex.pgm,
+            pc=ex.pc,
+            st=State(stack=list(stack), memory=ex.st.memory.copy()),
+            jumpis={},  # nested loops get a fresh unrolling budget
+            path=path,
+            alias=ex.alias.copy(),
+            cnts=deepcopy(ex.cnts),
+            nonces=deepcopy(ex.nonces),
+            sha3s=ex.sha3s.copy(),
+            storages=ex.storages.copy(),
+            balances=ex.balances.copy(),
+            known_keys=ex.known_keys,
+            known_sigs=ex.known_sigs,
+            call_sequence=ex.call_sequence,
+        )
+        if direction:
+            gen_ex.advance(pc=target + 1)
+        else:
+            gen_ex.advance()
+
+        bodies: list[lasso.BodyPath] = []
+        extra: set[int] = set()
+        # the loop head is identified like the unrolling counters (pc and jump
+        # destinations on the stack), plus the stack height (with the JUMPI
+        # operands), to tell apart the call sites of shared internal functions
+        self._probe = (ex.pc, ex.pgm, ex.context.depth, jid[1], len(stack) + 2)
+        self._probe_steps = 0
+        self._probe_flags = set()
+        try:
+            for end_ex in self.run(gen_ex):
+                if not getattr(end_ex, "lasso_at_head", False):
+                    if end_ex.context.output.data is None:
+                        # stuck path, e.g. symbolic memory offset
+                        self._probe_flags.add(
+                            f"body path not explored: {end_ex.context.output.error}"
+                        )
+                    continue  # the path leaves the loop
+
+                end_stack = end_ex.st.stack
+                if len(end_stack) != len(stack) + 2:
+                    self._probe_flags.add(
+                        f"stack height differs on a body path ({len(end_stack)} vs {len(stack)}+2)"
+                    )
+                    continue
+
+                # the iteration continues if the loop branch is taken again
+                again = lasso.branch_taken(lasso.as_z3(end_stack[-2]), direction)
+                if end_ex.check(again) == unsat:
+                    continue  # this path leaves the loop at the head
+
+                below = end_stack[:-2]
+                outputs = [lasso.as_z3(below[i]) for i in carried]
+                extra |= {
+                    j
+                    for j in range(len(stack))
+                    if j not in carried and not lasso.same_term(below[j], stack[j])
+                }
+                conditions = [
+                    c for c in end_ex.path.conditions if c.get_id() not in stem_ids
+                ]
+                conditions.append(again)
+                bodies.append(
+                    lasso.BodyPath(
+                        conditions, outputs, [*end_ex.path.conditions, again]
+                    )
+                )
+
+                if len(bodies) >= lasso.MAX_BODY_PATHS:
+                    self._probe_flags.add("too many body paths")
+                    break
+        finally:
+            self._probe = None
+
+        return bodies, extra, set(self._probe_flags)
+
     def create_branch(self, ex: Exec, cond: BitVecRef, target: int) -> Exec:
         new_path = ex.path.branch(cond)
         new_ex = Exec(
@@ -3186,6 +3445,7 @@ class SEVM:
             pc=target,
             st=deepcopy(ex.st),
             jumpis=deepcopy(ex.jumpis),
+            loop_snapshots=dict(ex.loop_snapshots),
             #
             path=new_path,
             alias=ex.alias.copy(),
@@ -3348,6 +3608,9 @@ class SEVM:
         # not strictly necessary, but helps type checking
         ex: Exec | None = None
 
+        # set when this run is the generalized iteration of a loop (lasso extraction)
+        probe = self._probe
+
         while (ex := next_ex or stack.pop()) is not None:
             try:
                 next_ex = None
@@ -3379,6 +3642,23 @@ class SEVM:
 
                 if ex.context.depth > MAX_CALL_DEPTH:
                     raise MessageDepthLimitError(ex.context)
+
+                # lasso extraction: stop when the probed loop comes back to its head
+                if probe is not None:
+                    if (
+                        ex.pc == probe[0]
+                        and ex.pgm is probe[1]
+                        and ex.context.depth == probe[2]
+                        and len(ex.st.stack) == probe[4]
+                        and lasso_jumpid_tokens(ex) == probe[3]
+                    ):
+                        ex.lasso_at_head = True
+                        yield ex
+                        continue
+                    self._probe_steps += 1
+                    if self._probe_steps > lasso.MAX_BODY_STEPS:
+                        self._probe_flags.add("step budget exhausted")
+                        return
 
                 insn: Instruction = ex.insn
                 opcode: int = insn.opcode
@@ -3594,6 +3874,8 @@ class SEVM:
                     state.set_top(BV(value, size=256))
 
                 elif opcode == OP_SSTORE:
+                    if probe is not None:
+                        self._probe_flags.add("storage written in the loop body")
                     slot: Word = state.popi()
                     value: Word = state.popi()
                     self.sstore(ex, ex.this(), slot, value)
@@ -3853,6 +4135,10 @@ class SEVM:
                     state.push_any(self.sload(ex, ex.this(), slot, transient=True))
 
                 elif opcode == OP_TSTORE:
+                    if probe is not None:
+                        self._probe_flags.add(
+                            "transient storage written in the loop body"
+                        )
                     slot: Word = state.popi()
                     value: Word = state.popi()
                     self.sstore(ex, ex.this(), slot, value, transient=True)

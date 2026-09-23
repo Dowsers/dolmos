@@ -11,6 +11,8 @@ counterexample.
 
 Start with the [getting started guide](https://github.com/Dowsers/dolmos/blob/main/docs/getting-started.md) and the
 [examples](https://github.com/Dowsers/dolmos/blob/main/examples/README.md).
+Loops that reach the unrolling bound can be exported for termination analysis with
+PaSTTeL (experimental): see [docs/loop-termination.md](https://github.com/Dowsers/dolmos/blob/main/docs/loop-termination.md).
 
 ## Features
 
