@@ -56,6 +56,8 @@ By using the symbolic initial supply, you can check if the given tests pass for 
 
 - The current list of available cheatcodes can be found [here][halmos-cheatcodes-list].
 
+- `setUp()` may branch on symbolic values (or revert on some of them): every feasible successful path becomes a separate setup state, and each test (and each invariant test sequence) is run from each of them. Counterexamples include the symbolic values that select the setup state. Run with `-v` to display the number of setup states.
+
 [halmos-cheatcodes-list]: <https://github.com/a16z/halmos-cheatcodes/blob/main/src/SVM.sol>
 
 ## 2. Write symbolic tests

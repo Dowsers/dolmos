@@ -380,7 +380,13 @@ def deploy_test(ctx: FunctionContext, sevm: SEVM) -> Exec:
     return ex
 
 
-def setup(ctx: FunctionContext) -> Exec:
+def setup(ctx: FunctionContext) -> list[Exec]:
+    """
+    Deploys the test contract and runs its setUp function.
+
+    Returns every feasible successful setup path: when setUp branches (e.g. on
+    symbolic values), each test is run from each of the resulting states.
+    """
     setup_timer = NamedTimer("setup")
     setup_timer.create_subtimer("decode")
 
@@ -394,7 +400,7 @@ def setup(ctx: FunctionContext) -> Exec:
     if not setup_sig:
         if args.statistics:
             print(setup_timer.report())
-        return setup_ex
+        return [setup_ex]
 
     # TODO: dyn_params may need to be passed to mk_calldata in run()
     calldata, dyn_params = mk_calldata(ctx.contract_ctx.abi, setup_info, args)
@@ -449,6 +455,7 @@ def setup(ctx: FunctionContext) -> Exec:
         case [(ex, _)]:
             setup_exs.append(ex)
         case _:
+            # keep every path that is not provably infeasible
             for path_id, (ex, query) in enumerate(setup_exs_no_error):
                 path_ctx = PathContext(
                     args=args,
@@ -459,20 +466,24 @@ def setup(ctx: FunctionContext) -> Exec:
                 solver_output = solve_low_level(path_ctx)
                 if solver_output.result != unsat:
                     setup_exs.append(ex)
-                    if len(setup_exs) > 1:
-                        break
 
-    match len(setup_exs):
-        case 0:
-            raise DolmosException(f"No successful path found in {setup_sig}")
-        case n if n > 1:
-            debug("\n".join(map(str, setup_exs)))
-            raise DolmosException(f"Multiple paths were found in {setup_sig}")
+    if not setup_exs:
+        raise DolmosException(f"No successful path found in {setup_sig}")
 
-    [setup_ex] = setup_exs
+    if len(setup_exs) > 1:
+        msg = (
+            f"{setup_sig}: {len(setup_exs)} setup states found; "
+            "each test will be run from each of them"
+        )
+        if args.verbose >= 1:
+            print(msg)
+        else:
+            debug(msg)
 
     if args.print_setup_states:
-        print(setup_ex)
+        for path_id, ex in enumerate(setup_exs):
+            print(f"# setup state {path_id}")
+            print(ex)
 
     if sevm.logs.bounded_loops:
         warn_code(
@@ -484,7 +495,7 @@ def setup(ctx: FunctionContext) -> Exec:
     if args.statistics:
         print(setup_timer.report())
 
-    return setup_ex
+    return setup_exs
 
 
 def is_global_fail_set(context: CallContext) -> bool:
@@ -1650,8 +1661,9 @@ def run_contract(ctx: ContractContext) -> list[TestResult]:
         )
 
         dolmos.traces.config_context.set(setup_config)
-        setup_ex = setup(setup_ctx)
-        setup_ex.path_slice()
+        setup_exs = setup(setup_ctx)
+        for setup_ex in setup_exs:
+            setup_ex.path_slice()
     except Exception as err:
         error(f"{setup_info.sig} failed: {type(err).__name__}: {err}")
         if args.debug:
@@ -1662,11 +1674,15 @@ def run_contract(ctx: ContractContext) -> list[TestResult]:
 
         return []
 
-    # initialize the frontier and visited states using the initial setup state
-    ctx.frontier_states[0] = [setup_ex]
-    ctx.visited.add(get_state_id(setup_ex))
+    # initialize the frontier and visited states using the initial setup states.
+    # every test (and every invariant test sequence) starts from each of them.
+    ctx.frontier_states[0] = setup_exs
+    for setup_ex in setup_exs:
+        ctx.visited.add(get_state_id(setup_ex))
 
-    test_results = run_tests(ctx, setup_ex, ctx.funsigs)
+    # the invariant testing context (target contracts, senders, selectors)
+    # is read from the first setup state
+    test_results = run_tests(ctx, setup_exs[0], ctx.funsigs)
 
     # reset any remaining solver states from the default context
     reset(setup_solver)

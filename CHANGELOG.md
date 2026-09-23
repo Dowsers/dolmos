@@ -15,6 +15,9 @@ All notable changes to dolmos are documented here. The format follows
   with foundry's semantics; symbolic revert data and event fields are matched
   symbolically and a counterexample is reported when an expectation can be
   violated (halmos#409)
+- multiple setup states: when `setUp()` has several feasible successful paths,
+  each test and each invariant test sequence is run from every one of them,
+  instead of failing with "Multiple paths were found in setUp()" (halmos#186)
 
 ### Fixed
 
