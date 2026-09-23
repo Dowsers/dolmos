@@ -5,7 +5,7 @@ import re
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterator
 from copy import deepcopy
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import timedelta
 from functools import reduce
 from timeit import default_timer as timer
@@ -178,6 +178,14 @@ from dolmos.exceptions import (
     Revert,
     StackUnderflowError,
     WriteInStaticContext,
+)
+from dolmos.expectations import (
+    DUMMY_CALL_OUTPUT,
+    Expectations,
+    as_z3_word,
+    emits_match,
+    find_reverter,
+    revert_reason_matches,
 )
 from dolmos.logs import (
     INTERNAL_ERROR,
@@ -582,6 +590,11 @@ class CallContext:
     depth: int = 1
     trace: list[TraceElement] = field(default_factory=list)
     prank: Prank = field(default_factory=Prank)
+    # pending vm.expectRevert / vm.expectEmit expectations of this frame
+    expectations: Expectations = field(default_factory=Expectations)
+    # return data seen by the caller, if different from output.data
+    # (a call that reverted as expected is reported as successful)
+    returndata_override: ByteVec | None = None
 
     def subcalls(self) -> Iterator["CallContext"]:
         return iter(t for t in self.trace if isinstance(t, CallContext))
@@ -1714,6 +1727,9 @@ class Exec:  # an execution path
         if not last_subcall:
             return EMPTY_BYTES
 
+        if last_subcall.returndata_override is not None:
+            return last_subcall.returndata_override
+
         output = last_subcall.output
         if last_subcall.message.is_create() and not output.error:
             return EMPTY_BYTES
@@ -2380,8 +2396,106 @@ class SEVM:
         ex.alias[target] = addr
         return addr
 
+    def resolve_expectations(
+        self,
+        ex: Exec,
+        stack: Worklist,
+        expected: Expectations,
+        reverted: bool,
+        ret_loc: int = 0,
+        ret_size: int = 0,
+    ) -> Exec | None:
+        """
+        Checks the vm.expectRevert / vm.expectEmit expectations against the call
+        that just returned (the last subcall of `ex`), before `ex` advances.
+
+        Forks a failing path whenever an expectation may not be met. Returns the
+        state to continue with, or None if the expectations can't be met.
+        """
+        subcall = ex.context.last_subcall()
+        checks: list[tuple[BoolRef, str]] = []
+
+        exp_revert = expected.revert
+        reverted_as_expected = False
+
+        if exp_revert is not None:
+            if exp_revert.count == 0:
+                if reverted:
+                    checks.append((BoolVal(False), f"{exp_revert}: the call reverted"))
+            elif not reverted:
+                checks.append(
+                    (BoolVal(False), f"{exp_revert}: next call did not revert")
+                )
+            else:
+                data = (
+                    subcall.output.data
+                    if subcall.output.data is not None
+                    else ByteVec()
+                )
+                cond = revert_reason_matches(exp_revert, data)
+                if exp_revert.reverter is not None:
+                    reverter = as_z3_word(find_reverter(subcall))
+                    cond = And(cond, reverter == as_z3_word(exp_revert.reverter))
+                checks.append(
+                    (cond, f"{exp_revert}: the revert data or reverter differs")
+                )
+                reverted_as_expected = True
+
+        if expected.emits:
+            cond, err = emits_match(expected.emits, subcall)
+            msg = err or (
+                f"{', '.join(map(str, expected.emits))}: "
+                "the expected events were not emitted by the next call"
+            )
+            checks.append((cond, msg))
+
+        for cond, msg in checks:
+            cond = simplify(cond)
+            if is_true(cond):
+                continue
+
+            if is_false(cond) or ex.check(cond) == unsat:
+                ex.halt(data=ByteVec(), error=FailCheatcode(msg))
+                stack.push(ex)
+                return None
+
+            not_cond = simplify(Not(cond))
+            if ex.check(not_cond) != unsat:
+                fail_ex = self.create_branch(ex, not_cond, ex.pc)
+                fail_ex.halt(data=ByteVec(), error=FailCheatcode(msg))
+                stack.push(fail_ex)
+
+            ex.path.append(cond, branching=True)
+
+        if reverted_as_expected:
+            # like foundry, report the call as successful: status 1 (address(1)
+            # for a creation) and dummy return data. The state stays reverted.
+            ex.st.pop()
+            ex.st.push(ONE)
+            if subcall.message.is_create():
+                subcall.returndata_override = EMPTY_BYTES
+            else:
+                subcall.returndata_override = DUMMY_CALL_OUTPUT
+                copy_returndata_to_memory(DUMMY_CALL_OUTPUT, ret_loc, ret_size, ex)
+
+            # expectRevert with a count applies to the following calls as well
+            if exp_revert.count > 1:
+                ex.context.expectations.revert = replace(
+                    exp_revert, count=exp_revert.count - 1
+                )
+
+        return ex
+
     def handle_insufficient_fund_case(
-        self, caller: Address, value: BV, message: Message, ex: Exec, stack: Worklist
+        self,
+        caller: Address,
+        value: BV,
+        message: Message,
+        ex: Exec,
+        stack: Worklist,
+        expected: Expectations | None = None,
+        ret_loc: int = 0,
+        ret_size: int = 0,
     ):
         if value == ZERO:
             return
@@ -2401,6 +2515,12 @@ class SEVM:
                 )
             )
             fail_ex.st.push(ZERO)
+            if expected is not None:
+                fail_ex = self.resolve_expectations(
+                    fail_ex, stack, expected, True, ret_loc, ret_size
+                )
+                if fail_ex is None:
+                    return
             fail_ex.advance()
             stack.push(fail_ex)
 
@@ -2464,6 +2584,9 @@ class SEVM:
         pranked_caller, pranked_origin = ex.resolve_prank(to)
         arg = ex.st.mslice(arg_loc, arg_size)
 
+        # vm.expectRevert / vm.expectEmit apply to the next non-cheatcode call
+        expected = None if to in CHEATCODE_ADDRESSES else ex.context.expectations.take()
+
         resolved_to = to_alias if to_alias is not None else to
         message = Message(
             target=resolved_to if op in [OP_CALL, OP_STATICCALL] else ex.this(),
@@ -2475,7 +2598,9 @@ class SEVM:
             call_scheme=op,
         )
 
-        self.handle_insufficient_fund_case(pranked_caller, fund, message, ex, stack)
+        self.handle_insufficient_fund_case(
+            pranked_caller, fund, message, ex, stack, expected, ret_loc, ret_size
+        )
 
         def send_callvalue(condition: BoolRef | None = None) -> None:
             # no balance update for CALLCODE which transfers to itself
@@ -2531,6 +2656,13 @@ class SEVM:
                     new_ex.storage = deepcopy(orig_storage)
                     new_ex.transient_storage = deepcopy(orig_transient_storage)
                     new_ex.balance = orig_balance
+
+                if expected is not None:
+                    new_ex = self.resolve_expectations(
+                        new_ex, stack, expected, not subcall_success, ret_loc, ret_size
+                    )
+                    if new_ex is None:
+                        return
 
                 # add to worklist even if it reverted during the external call
                 new_ex.advance()
@@ -2724,6 +2856,14 @@ class SEVM:
                     )
                 )
 
+                if expected is not None:
+                    reverted = exit_code.is_concrete and exit_code.value == 0
+                    new_ex = self.resolve_expectations(
+                        new_ex, stack, expected, reverted, ret_loc, ret_size
+                    )
+                    if new_ex is None:
+                        continue
+
                 new_ex.advance()
                 stack.push(new_ex)
 
@@ -2803,12 +2943,16 @@ class SEVM:
             call_scheme=op,
         )
 
-        self.handle_insufficient_fund_case(pranked_caller, value, message, ex, stack)
+        # vm.expectRevert / vm.expectEmit also apply to contract creations
+        expected = ex.context.expectations.take()
+
+        self.handle_insufficient_fund_case(
+            pranked_caller, value, message, ex, stack, expected
+        )
 
         if new_addr in ex.code:
             # address conflicts don't revert, they push 0 on the stack and continue
             ex.st.push(ZERO)
-            ex.advance()
 
             # add a virtual subcontext to the trace for debugging purposes
             subcall = CallContext(message=message, depth=ex.context.depth + 1)
@@ -2816,6 +2960,12 @@ class SEVM:
             subcall.output.error = AddressCollision()
             ex.context.trace.append(subcall)
 
+            if expected is not None:
+                ex = self.resolve_expectations(ex, stack, expected, True)
+                if ex is None:
+                    return
+
+            ex.advance()
             stack.push(ex)
             return
 
@@ -2884,6 +3034,13 @@ class SEVM:
                 new_ex.storage = deepcopy(orig_storage)
                 new_ex.transient_storage = deepcopy(orig_transient_storage)
                 new_ex.balance = orig_balance
+
+            if expected is not None:
+                new_ex = self.resolve_expectations(
+                    new_ex, stack, expected, subcall.output.error is not None
+                )
+                if new_ex is None:
+                    return
 
             # add to worklist
             new_ex.advance()
@@ -3138,6 +3295,21 @@ class SEVM:
         stack: Worklist = Worklist()
 
         def finalize(ex: Exec):
+            # a frame that returns successfully must not leave expectations pending
+            output = ex.context.output
+            if (
+                output.error is None
+                and output.data is not None
+                and ex.context.expectations
+            ):
+                pending = ex.context.expectations.describe()
+                output.error = FailCheatcode(
+                    f"{pending}: the expected call never happened"
+                )
+                stack.completed_paths += 1
+                yield ex  # early exit, like other cheatcode failures
+                return
+
             # if it's at the top-level, there is no callback; yield the current execution state
             if ex.callback is None:
                 stack.completed_paths += 1
@@ -3493,7 +3665,9 @@ class SEVM:
                     size: int = ex.int_of(state.pop(), "symbolic LOG data size")
                     topics = list(state.pop() for _ in range(num_topics))
                     data = state.mslice(loc, size)
-                    ex.emit_log(EventLog(ex.this(), topics, data))
+                    log = EventLog(ex.this(), topics, data)
+                    ex.emit_log(log)
+                    ex.context.expectations.capture_log(log)
 
                 elif opcode in CALL_OPCODES:
                     to = uint160(state.peek(2))

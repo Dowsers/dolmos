@@ -7,6 +7,15 @@ All notable changes to dolmos are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `vm.expectRevert` (all overloads, including the reverter address and `count`
+  variants), `vm.expectPartialRevert`, `vm.expectEmit` and
+  `vm.expectEmitAnonymous` (including the emitter address and `count` variants),
+  with foundry's semantics; symbolic revert data and event fields are matched
+  symbolically and a counterexample is reported when an expectation can be
+  violated (halmos#409)
+
 ### Fixed
 
 - SHA256, RIPEMD160 and MODEXP precompiles with symbolic input no longer crash

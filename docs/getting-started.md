@@ -196,6 +196,15 @@ token.transfer(receiver, amount);
   }
   ```
 
+- Foundry's `vm.expectRevert()` (all variants, including `expectPartialRevert`, the reverter address and the `count` overloads) and `vm.expectEmit()` (including `expectEmitAnonymous`, the emitter address and the `count` overloads) are supported, with the same semantics as in foundry. With symbolic inputs, dolmos reports a counterexample whenever the expectation can be violated:
+  ```solidity
+  vm.assume(amount > balanceOfSender);
+  vm.expectRevert(abi.encodeWithSelector(Token.InsufficientBalance.selector, sender));
+  vm.prank(sender);
+  token.transfer(receiver, amount);
+  ```
+  Note that like foundry, logs emitted by reverted subcalls are taken into account by `expectEmit`.
+
 ### 2.4 Check output states
 
 After calling the target contracts, you can write assertions against the output state of the contracts.

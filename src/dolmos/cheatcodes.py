@@ -44,6 +44,12 @@ from dolmos.exceptions import (
     NotConcreteError,
     OutOfGasError,
 )
+from dolmos.expectations import (
+    EMIT_SIGNATURES,
+    REVERT_SIGNATURES,
+    parse_expect_emit,
+    parse_expect_revert,
+)
 from dolmos.logs import debug
 from dolmos.mapper import BuildOut
 from dolmos.utils import (
@@ -1618,6 +1624,16 @@ class hevm_cheat_code:
 
         elif funsig == hevm_cheat_code.env_exists_sig:
             return env_exists(arg)
+
+        # vm.expectRevert(...) / vm.expectPartialRevert(...)
+        elif funsig in REVERT_SIGNATURES:
+            ex.context.expectations.expect_revert(parse_expect_revert(funsig, arg))
+            return ret
+
+        # vm.expectEmit(...) / vm.expectEmitAnonymous(...)
+        elif funsig in EMIT_SIGNATURES:
+            ex.context.expectations.expect_emit(parse_expect_emit(funsig, arg))
+            return ret
 
         elif funsig in dict_of_unsupported_cheatcodes:
             msg = f"Unsupported cheat code: {dict_of_unsupported_cheatcodes[funsig]}"

@@ -1026,6 +1026,323 @@
                 "num_bounded_loops": null
             }
         ],
+        "test/Expect.t.sol:ExpectTest": [
+            {
+                "name": "check_expectEmit(uint256,uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_anonymous(uint256,uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_count(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_count_fail(uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_emitter(uint256,uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_no_emit_fail(uint256,uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_ordered(uint256,uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_pending_fail(uint256,uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_skip_data(uint256,uint256,uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_wrong_data_fail(uint256,uint256,uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_wrong_emitter_fail(uint256,uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_wrong_order_fail(uint256,uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectEmit_wrong_topic_fail(uint256,uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectPartialRevert(address)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_any(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_any_fail(uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_count()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_count_fail()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_count_zero()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_count_zero_fail()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_create()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_custom_error(address)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_custom_error_symbolic_fail(address,address)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_no_revert_fail()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_pending_fail()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_returns_success()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_reverter()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_reverter_fail()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_selector()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_selector_with_args_fail(address)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_state_is_reverted(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_string(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_string_bytes(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_with_prank()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_expectRevert_wrong_string_fail(uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
         "test/Extcodehash.t.sol:ExtcodehashTest": [
             {
                 "name": "check_extcodehash_a1_eq_a2()",

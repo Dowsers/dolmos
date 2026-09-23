@@ -279,7 +279,7 @@ contract SvmCheatCodeTest is SymTest, Test {
 
     function check_unsupported_cheatcode_fail() public {
         // expected to fail with unknown cheatcode
-        vm.expectRevert("will revert");
+        vm.expectCall(address(0xdead), "");
     }
 
     function check_env_missing_fail() public {
