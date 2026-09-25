@@ -2875,6 +2875,35 @@
                 "num_bounded_loops": null
             }
         ],
+        "test/KeccakRefinement.t.sol:KeccakRefinementTest": [
+            {
+                "name": "check_keccak_injective(uint256,uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_keccak_known_preimage(uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_keccak_unknown_preimage(uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
         "test/Library.t.sol:LibraryTest": [
             {
                 "name": "check_add(uint256,uint256)",

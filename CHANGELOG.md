@@ -40,6 +40,12 @@ All notable changes to dolmos are documented here. The format follows
   via-IR optimizer in a constructor) and read through SHA3 at runtime now hit the same
   storage cell, instead of reading zero and reporting a false counterexample; applies to
   both storage layouts (halmos#579)
+- counterexamples relying on keccak256 values that differ from the real hash function
+  (keccak256 is uninterpreted, so the solver could pick e.g. `x = 0` and assume that its
+  hash is the key of a storage entry) are no longer reported as valid. The real hashes of
+  the preimages chosen by the model are added to the query, which is solved again, up to
+  `--keccak-refinement-rounds` times (default 3, 0 disables the check); a counterexample
+  that still disagrees is reported as potentially invalid (halmos#562)
 
 ## [0.1.0] - 2026-09-22
 

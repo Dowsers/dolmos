@@ -614,6 +614,15 @@ class Config:
         group=solver_group,
     )
 
+    keccak_refinement_rounds: int = arg(
+        help="when a counterexample relies on keccak values inconsistent with the real hash function, "
+        "add the real hash values to the query and solve again, at most this many times; "
+        "a counterexample that is still inconsistent is reported as potentially invalid (0 disables the check)",
+        global_default=3,
+        metavar="N",
+        group=solver_group,
+    )
+
     ### Experimental options
 
     symbolic_jump: bool = arg(

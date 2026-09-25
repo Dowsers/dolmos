@@ -1,6 +1,13 @@
 import pytest
+from eth_hash.auto import keccak
 
-from dolmos.solve import ModelVariable, parse_model_str
+from dolmos.solve import (
+    ModelVariable,
+    keccak_fact,
+    parse_model_str,
+    parse_sha3_arg_values,
+    sha3_arg_decls,
+)
 
 
 @pytest.mark.parametrize(
@@ -109,4 +116,42 @@ def test_smtlib_stp_output(full_name):
         smt_type="BitVec 8",
         size_bits=8,
         value=4,
+    )
+
+
+@pytest.mark.parametrize(
+    "smtlib_str",
+    [
+        # z3
+        "(define-fun sha3arg_0 () (_ BitVec 256)\n  #x000000000000000000000000000000000000000000000000000000000000002a)"
+        "(define-fun sha3arg_1 () (_ BitVec 16) #x0001)",
+        # yices --smt2-model-format --bvconst-in-decimal
+        "(define-fun sha3arg_0 () (_ BitVec 256) (_ bv42 256))"
+        "(define-fun sha3arg_1 () (_ BitVec 16) (_ bv1 16))",
+        # yices --smt2-model-format
+        "(define-fun sha3arg_0 () (_ BitVec 256) #b" + "0" * 250 + "101010)"
+        "(define-fun sha3arg_1 () (_ BitVec 16) #b0000000000000001)",
+    ],
+)
+def test_parse_sha3_arg_values(smtlib_str):
+    values = parse_sha3_arg_values(
+        "sat\n(define-fun p_x_uint256_00 () (_ BitVec 256) (_ bv7 256))\n" + smtlib_str
+    )
+    assert values == {0: (256, 42), 1: (16, 1)}
+
+
+def test_keccak_fact():
+    fact, hash_value = keccak_fact(256, 42)
+    expected = int.from_bytes(keccak((42).to_bytes(32, "big")), "big")
+    assert hash_value == expected
+    assert fact == f"(assert (= (f_sha3_256 (_ bv42 256)) (_ bv{expected} 256)))\n"
+
+
+def test_sha3_arg_decls():
+    decls = sha3_arg_decls(((256, "p_x_uint256_00"), (512, "(concat a b)")))
+    assert decls == (
+        "(declare-fun sha3arg_0 () (_ BitVec 256))\n"
+        "(assert (= sha3arg_0 p_x_uint256_00))\n"
+        "(declare-fun sha3arg_1 () (_ BitVec 512))\n"
+        "(assert (= sha3arg_1 (concat a b)))\n"
     )

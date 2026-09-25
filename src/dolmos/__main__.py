@@ -117,6 +117,7 @@ from dolmos.solve import (
     PathContext,
     SolverOutput,
     dirname,
+    mk_sha3_args,
     solve_end_to_end,
     solve_low_level,
 )
@@ -952,6 +953,7 @@ class CounterexampleHandler:
             path_id=path_id,
             query=query,
             solving_ctx=ctx.solving_ctx,
+            sha3_args=mk_sha3_args(ex.sha3s) if args.keccak_refinement_rounds else (),
         )
 
         # ShutdownError may be raised here and will be handled by the caller

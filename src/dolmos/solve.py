@@ -4,12 +4,13 @@ import re
 import shlex
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import MappingProxyType
 from typing import Literal
 
+from eth_hash.auto import keccak
 from z3 import CheckSatResult, Solver, sat, unknown, unsat
 
 from dolmos.calldata import FunctionInfo
@@ -25,7 +26,7 @@ from dolmos.processes import (
     PopenFuture,
 )
 from dolmos.sevm import Address, Exec, SMTQuery
-from dolmos.utils import hexify
+from dolmos.utils import f_sha3_name, hexify, is_bv_value, is_f_sha3_name
 
 EXIT_TIMEDOUT = 124
 
@@ -284,10 +285,16 @@ class PathContext:
     query: SMTQuery
     is_refined: bool = False
 
+    # symbolic keccak preimages of the path, as (bitsize, smtlib term); see mk_sha3_args()
+    sha3_args: tuple[tuple[int, str], ...] = ()
+
+    # distinguishes the query files of keccak refinement rounds
+    suffix: str = ""
+
     @property
     def dump_file(self) -> Path:
         refined_str = ".refined" if self.is_refined else ""
-        filename = f"{self.path_id}{refined_str}.smt2"
+        filename = f"{self.path_id}{refined_str}{self.suffix}.smt2"
 
         return Path(dirname(self.solving_ctx.dump_dir)) / filename
 
@@ -298,6 +305,8 @@ class PathContext:
             solving_ctx=self.solving_ctx,
             query=refine(self.query),
             is_refined=True,
+            sha3_args=self.sha3_args,
+            suffix=self.suffix,
         )
 
 
@@ -547,6 +556,22 @@ def solve_low_level(path_ctx: PathContext) -> SolverOutput:
 
 
 def solve_end_to_end(ctx: PathContext) -> SolverOutput:
+    """Solves the given query, then checks the keccak values the model relies on (see refine_keccak)."""
+    if not ctx.sha3_args or ctx.args.keccak_refinement_rounds <= 0:
+        return _solve_end_to_end(ctx)
+
+    # expose the keccak preimages in the model with definitional (hence unsat-core neutral) constraints
+    ctx = replace(
+        ctx,
+        query=SMTQuery(
+            ctx.query.smtlib + sha3_arg_decls(ctx.sha3_args), ctx.query.assertions
+        ),
+    )
+    solver_output = _solve_end_to_end(ctx)
+    return refine_keccak(ctx, solver_output)
+
+
+def _solve_end_to_end(ctx: PathContext) -> SolverOutput:
     """Synchronously resolves a query in a given context, which may result in 0, 1 or multiple solver invocations.
 
     - may result in 0 invocations if the query contains a known unsat core (hence the need for the context)
@@ -583,6 +608,140 @@ def solve_end_to_end(ctx: PathContext) -> SolverOutput:
             verbose("    Refinement did not change the query, no need to solve again")
 
     return solver_output
+
+
+# keccak refinement (a16z/halmos#562)
+#
+# keccak256 is modeled as uninterpreted functions f_sha3_N, constrained only by the
+# injectivity and range axioms, and by the concrete values of hashes of concrete data.
+# A model may thus assign to a symbolic preimage x a hash value f_sha3_N(x) that differs
+# from the real keccak256(x), e.g. the solver may pick x = 0 and "decide" that its hash
+# is the key of a storage entry written in setUp. Such a counterexample does not replay.
+#
+# When the query is sat, the value of every symbolic preimage is read from the model, and
+# the real hashes of these values are asserted, `f_sha3_N(v) == keccak256(v)`. These facts
+# are true of the real hash function, so the refined query keeps every real counterexample:
+# - if the model agrees with the real hashes, the counterexample is kept as is;
+# - otherwise the query is solved again with the new facts: unsat means that no counterexample
+#   exists under the real hash values (modulo the usual keccak assumptions), and a new model is
+#   checked again, up to --keccak-refinement-rounds times; a model that still disagrees is
+#   reported as potentially invalid.
+
+SHA3_ARG_PREFIX = "sha3arg_"
+
+sha3_arg_pattern = re.compile(
+    rf"\(\s*define-fun\s+\|?({SHA3_ARG_PREFIX}\d+)\|?\s+\(\)\s+\(_\s+BitVec\s+(\d+)\)\s+"
+    r"(#x[0-9a-fA-F]+|#b[01]+|\(_\s+bv\d+\s+\d+\))\s*\)"
+)
+
+MAX_SHA3_ARGS = 64
+
+
+def mk_sha3_args(sha3s) -> tuple[tuple[int, str], ...]:
+    """
+    Returns the symbolic keccak preimages registered in the given KeccakRegistry, as
+    (bitsize, smtlib term) pairs. Strings only: the result crosses thread boundaries.
+    """
+    result = []
+    for expr in sha3s:
+        if expr.num_args() != 1 or not is_f_sha3_name(expr.decl().name()):
+            continue
+        data = expr.arg(0)
+        if is_bv_value(data):
+            continue
+        result.append((data.size(), data.sexpr()))
+        if len(result) >= MAX_SHA3_ARGS:
+            break
+    return tuple(result)
+
+
+def sha3_arg_decls(sha3_args) -> str:
+    return "".join(
+        f"(declare-fun {SHA3_ARG_PREFIX}{i} () (_ BitVec {size}))\n"
+        f"(assert (= {SHA3_ARG_PREFIX}{i} {term}))\n"
+        for i, (size, term) in enumerate(sha3_args)
+    )
+
+
+def parse_sha3_arg_values(solver_stdout: str) -> dict[int, tuple[int, int]]:
+    """Returns {index: (bitsize, value)} for the sha3arg_* constants of the model"""
+    values = {}
+    for match in sha3_arg_pattern.finditer(solver_stdout):
+        index = int(match.group(1)[len(SHA3_ARG_PREFIX) :])
+        values[index] = (int(match.group(2)), parse_const_value(match.group(3)))
+    return values
+
+
+def keccak_fact(size: int, value: int) -> tuple[str, int] | None:
+    """Returns the assertion `f_sha3_<size>(value) == keccak256(value)`, and the hash"""
+    hash_value = int.from_bytes(keccak(value.to_bytes(size // 8, "big")), "big")
+
+    # outside of the range assumed for hash values; see Exec.sha3_data()
+    if hash_value == 0 or hash_value > 2**256 - 2**64:
+        return None
+
+    fact = f"(assert (= ({f_sha3_name(size)} (_ bv{value} {size})) (_ bv{hash_value} 256)))\n"
+    return fact, hash_value
+
+
+def refine_keccak(ctx: PathContext, solver_output: SolverOutput) -> SolverOutput:
+    verbose = print if ctx.args.verbose >= 1 else lambda *args, **kwargs: None
+
+    facts: dict[tuple[int, int], str] = {}
+    base_smtlib = ctx.query.smtlib
+    max_rounds = ctx.args.keccak_refinement_rounds
+
+    for round in range(max_rounds + 1):
+        result, model = solver_output.result, solver_output.model
+        if result != sat or model is None or not model.is_valid:
+            return solver_output
+
+        try:
+            with open(f"{solver_output.query_file}.out") as f:
+                values = parse_sha3_arg_values(f.read())
+        except OSError:
+            return solver_output
+
+        new_facts = {}
+        consistent = True
+        for size, value in values.values():
+            if size % 8 or (size, value) in facts:
+                continue
+            fact = keccak_fact(size, value)
+            if fact is None:
+                consistent = False
+                continue
+            new_facts[size, value] = fact[0]
+
+        if not new_facts:
+            if consistent:
+                return solver_output
+            break
+
+        if round == max_rounds:
+            break
+
+        facts.update(new_facts)
+        verbose(
+            f"  Checking again with {len(facts)} keccak value(s) (round {round + 1})"
+        )
+
+        refined_ctx = replace(
+            ctx,
+            query=SMTQuery(base_smtlib + "".join(facts.values()), ctx.query.assertions),
+            suffix=f".keccak{round + 1}",
+        )
+        solver_output = solve_low_level(refined_ctx)
+
+        # an unsat core of the refined query may depend on the (unnamed) keccak facts,
+        # so it cannot be reused for other queries
+        if solver_output.unsat_core is not None:
+            solver_output = replace(solver_output, unsat_core=None)
+
+    # the model still relies on keccak values that may not exist
+    verbose("  Keccak values of the model are not consistent with keccak256")
+    potential_model = PotentialModel(model=solver_output.model.model, is_valid=False)
+    return replace(solver_output, model=potential_model)
 
 
 def check_unsat_cores(query: SMTQuery, unsat_cores: list[list]) -> bool:
