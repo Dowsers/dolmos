@@ -1026,6 +1026,48 @@
                 "num_bounded_loops": null
             }
         ],
+        "test/EvmVersion.t.sol:EvmVersionDefaultTest": [
+            {
+                "name": "check_all_available()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
+        "test/EvmVersion.t.sol:EvmVersionPragueTest": [
+            {
+                "name": "check_clz_invalid()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
+        "test/EvmVersion.t.sol:EvmVersionShanghaiTest": [
+            {
+                "name": "check_tstore_available_fail()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_tstore_invalid()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
         "test/Expect.t.sol:ExpectTest": [
             {
                 "name": "check_expectEmit(uint256,uint256)",
@@ -4303,6 +4345,28 @@
             },
             {
                 "name": "check_deleted_after_tx()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
+        "test/SelfDestruct.t.sol:SelfDestructShanghaiDeletedTest": [
+            {
+                "name": "check_preexisting_deleted_after_tx()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
+        "test/SelfDestruct.t.sol:SelfDestructShanghaiTest": [
+            {
+                "name": "check_preexisting_alive_until_end_of_tx()",
                 "exitcode": 0,
                 "num_models": 0,
                 "models": null,

@@ -162,6 +162,13 @@ from dolmos.contract import (
     Instruction,
     mnemonic,
 )
+from dolmos.evm_version import (
+    EVM_VERSIONS,
+    LATEST_EVM_VERSION,
+    is_at_least,
+    normalize_evm_version,
+    unavailable_opcodes,
+)
 from dolmos.exceptions import (
     AddressCollision,
     DolmosException,
@@ -2330,6 +2337,18 @@ class Worklist:
         return len(self.stack)
 
 
+def resolve_evm_version(name: str) -> str:
+    if not name:
+        return LATEST_EVM_VERSION
+
+    version = normalize_evm_version(name)
+    if version is None:
+        raise DolmosException(
+            f"unsupported EVM version: {name} (supported: {', '.join(EVM_VERSIONS)})"
+        )
+    return version
+
+
 class SEVM:
     options: DolmosConfig
     fun_info: FunctionInfo
@@ -2351,6 +2370,11 @@ class SEVM:
         # init storage model
         is_generic = self.options.storage_layout == "generic"
         self.storage_model = GenericStorage if is_generic else SolidityStorage
+
+        # EVM version (a16z/halmos#128)
+        self.evm_version = resolve_evm_version(self.options.evm_version)
+        self.unavailable_opcodes = unavailable_opcodes(self.evm_version)
+        self.eip6780 = is_at_least(self.evm_version, "cancun")
 
     def div_xy_y(self, w1: Word, w2: Word) -> Word:
         # return the number of bits required to represent the given value. default = 256
@@ -3645,7 +3669,10 @@ class SEVM:
 
     def selfdestruct(self, ex: Exec) -> None:
         """
-        SELFDESTRUCT with the semantics introduced by EIP-6780 (Cancun):
+        Before Cancun, the account is always deleted at the end of the transaction, and
+        a balance sent to itself is burnt.
+
+        From Cancun, SELFDESTRUCT follows EIP-6780:
         - the whole balance of the executing account is sent to the beneficiary;
         - the account is deleted, at the end of the transaction, only if it was
           created in the same transaction. In that case, a balance sent to itself
@@ -3661,7 +3688,7 @@ class SEVM:
         balance = BV(ex.balance_of(this))
         self.transfer_value(ex, this, beneficiary.as_z3(), balance)
 
-        if this in ex.created_in_tx:
+        if not self.eip6780 or this in ex.created_in_tx:
             ex.context.output.accounts_to_delete.add(this)
 
         ex.halt(data=ByteVec())
@@ -3748,6 +3775,7 @@ class SEVM:
 
         # cache config options out of the hot loop
         no_status = self.options.no_status
+        unavailable = self.unavailable_opcodes
         max_depth = self.options.depth
         print_steps = self.options.print_steps
         print_mem = self.options.print_mem
@@ -3849,6 +3877,12 @@ class SEVM:
 
                 if print_steps:
                     print(ex.dump(print_mem=print_mem))
+
+                # opcodes introduced after the selected EVM version are invalid
+                if unavailable and opcode in unavailable:
+                    ex.halt(data=ByteVec(), error=InvalidOpcode(opcode))
+                    yield from finalize(ex)
+                    continue
 
                 # Reordered based on frequency data
                 if OP_PUSH1 <= opcode <= OP_PUSH31:

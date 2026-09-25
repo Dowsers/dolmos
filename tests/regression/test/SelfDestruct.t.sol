@@ -132,3 +132,41 @@ contract SelfDestructDeletedTest is Test {
         assertEq(ret.length, 0);
     }
 }
+
+// before Cancun, SELFDESTRUCT deletes the account at the end of the transaction,
+// even if it was not created in that transaction (a16z/halmos#128)
+/// @custom:dolmos --evm-version shanghai
+contract SelfDestructShanghaiTest {
+    Destructible preexisting;
+    address payable constant BENEFICIARY = payable(address(0xbeef));
+
+    function setUp() public {
+        preexisting = new Destructible{value: 1 ether}();
+    }
+
+    // still alive until the end of the transaction
+    function check_preexisting_alive_until_end_of_tx() public {
+        preexisting.destroy(BENEFICIARY);
+        assert(address(preexisting).balance == 0);
+        assert(BENEFICIARY.balance == 1 ether);
+        assert(address(preexisting).code.length > 0);
+    }
+}
+
+/// @custom:dolmos --evm-version shanghai
+contract SelfDestructShanghaiDeletedTest {
+    Destructible preexisting;
+
+    // the account is created in the constructor (first transaction), and destroyed in setUp
+    constructor() {
+        preexisting = new Destructible();
+    }
+
+    function setUp() public {
+        preexisting.destroy(payable(address(0xbeef)));
+    }
+
+    function check_preexisting_deleted_after_tx() public view {
+        assert(address(preexisting).code.length == 0);
+    }
+}

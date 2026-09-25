@@ -378,6 +378,14 @@ class Config:
         choices=["solidity", "generic"],
     )
 
+    evm_version: str = arg(
+        help="EVM version (hard fork) to execute against, e.g. shanghai, cancun, prague, osaka; "
+        "determines the available opcodes and the semantics of SELFDESTRUCT. "
+        "Defaults to the evmVersion the test contract was compiled for, or the latest supported fork",
+        global_default="",
+        metavar="VERSION",
+    )
+
     ffi: bool = arg(
         help="allow the usage of FFI to call external functions",
         global_default=False,

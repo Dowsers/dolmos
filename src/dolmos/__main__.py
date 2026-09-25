@@ -69,6 +69,12 @@ from dolmos.constants import (
 )
 from dolmos.contract import CoverageReporter
 from dolmos.env import init_env
+from dolmos.evm_version import (
+    EVM_VERSIONS,
+    LATEST_EVM_VERSION,
+    evm_version_from_metadata,
+    normalize_evm_version,
+)
 from dolmos.exceptions import (
     DolmosException,
     FailCheatcode,
@@ -201,6 +207,35 @@ def with_devdoc(args: DolmosConfig, fn_sig: str, contract_json: dict) -> DolmosC
     overrides = arg_parser().parse_args(shlex.split(devdoc))
     source = ConfigSource.function_annotation
     return args.with_overrides(source, **vars(overrides))
+
+
+def with_evm_version(args: DolmosConfig, contract_json: dict) -> DolmosConfig:
+    """
+    Resolves the EVM version (a16z/halmos#128): the --evm-version option if given,
+    otherwise the evmVersion the contract was compiled for, otherwise the latest fork.
+    """
+    if args.evm_version:
+        if normalize_evm_version(args.evm_version) is None:
+            error(
+                f"unsupported EVM version: {args.evm_version} "
+                f"(supported: {', '.join(EVM_VERSIONS)})"
+            )
+            sys.exit(2)
+        return args
+
+    compiled_for = evm_version_from_metadata(contract_json)
+    if compiled_for is None:
+        return args
+
+    version = normalize_evm_version(compiled_for)
+    if version is None:
+        warn(
+            f"unsupported evmVersion {compiled_for} in the build output, "
+            f"using {LATEST_EVM_VERSION} (see --evm-version)"
+        )
+        return args
+
+    return args.with_overrides(ConfigSource.default, evm_version=version)
 
 
 def with_natspec(
@@ -1991,6 +2026,7 @@ def _main(_args=None) -> MainResult:
 
         # support for `/// @custom:dolmos` annotations
         contract_args = with_natspec(args, contract_name, natspec)
+        contract_args = with_evm_version(contract_args, contract_json)
         contract_ctx = ContractContext(
             args=contract_args,
             name=contract_name,

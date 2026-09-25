@@ -28,6 +28,11 @@ All notable changes to dolmos are documented here. The format follows
   the beneficiary and the frame halts; the account (code, storage, balance, nonce) is
   deleted at the end of the transaction only if it was created in that transaction;
   forbidden in static contexts (halmos#411)
+- EVM version setting, `--evm-version VERSION` (also usable in `dolmos.toml` and
+  `@custom:dolmos` annotations): opcodes introduced after the selected fork are invalid,
+  and `SELFDESTRUCT` deletes the account unconditionally before Cancun. Defaults to the
+  `evmVersion` the test contract was compiled for (foundry's `evm_version`), or to the
+  latest supported fork, `osaka` (halmos#128)
 
 ### Fixed
 
