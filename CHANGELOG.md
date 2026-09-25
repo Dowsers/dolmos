@@ -24,6 +24,10 @@ All notable changes to dolmos are documented here. The format follows
   a small-constants encoding by default, because PaSTTeL computes with doubles
   and is unsound on 2^256 constants; `--lasso-exact-constants` gives the exact
   encoding. See docs/loop-termination.md
+- `SELFDESTRUCT` opcode, with the EIP-6780 (Cancun) semantics: the balance is sent to
+  the beneficiary and the frame halts; the account (code, storage, balance, nonce) is
+  deleted at the end of the transaction only if it was created in that transaction;
+  forbidden in static contexts (halmos#411)
 
 ### Fixed
 

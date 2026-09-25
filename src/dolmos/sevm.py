@@ -137,6 +137,7 @@ from dolmos.contract import (
     OP_SAR,
     OP_SDIV,
     OP_SELFBALANCE,
+    OP_SELFDESTRUCT,
     OP_SGT,
     OP_SHA3,
     OP_SHL,
@@ -1264,6 +1265,7 @@ class Exec:  # an execution path
     st: State  # stack and memory
     jumpis: dict[JumpID, dict[bool, int]]  # for loop detection
     addresses_to_delete: set[Address]
+    created_in_tx: set[Address]  # accounts created in the current transaction
 
     # path
     path: Path  # path conditions
@@ -1305,6 +1307,10 @@ class Exec:  # an execution path
         # stack snapshots at symbolic JUMPIs, only recorded with --dump-lassos
         self.loop_snapshots = kwargs.get("loop_snapshots") or {}
         self.addresses_to_delete = kwargs.get("addresses_to_delete") or set()
+        # accounts created in the current transaction (EIP-6780, SELFDESTRUCT).
+        # note: an empty set must be preserved as-is, so that sub-contexts share it
+        created_in_tx = kwargs.get("created_in_tx")
+        self.created_in_tx = created_in_tx if created_in_tx is not None else set()
         #
         self.path = kwargs["path"]
         self.alias = kwargs["alias"]
@@ -2773,6 +2779,12 @@ class SEVM:
                 subcall_success = subcall.output.error is None
                 new_ex.st.push(ONE if subcall_success else ZERO)
 
+                if subcall_success:
+                    # accounts self-destructed in the subcall are deleted at the end of the transaction
+                    new_ex.context.output.accounts_to_delete |= (
+                        subcall.output.accounts_to_delete
+                    )
+
                 if not subcall_success:
                     # revert network states
                     new_ex.code = orig_code.copy()
@@ -2813,6 +2825,7 @@ class SEVM:
                 #
                 cnts=ex.cnts,
                 nonces=ex.nonces,
+                created_in_tx=ex.created_in_tx,
                 sha3s=ex.sha3s,
                 storages=ex.storages,
                 balances=ex.balances,
@@ -3107,6 +3120,9 @@ class SEVM:
         # a newly created account starts with nonce 1 (EIP-161)
         ex.set_nonce(new_addr, 1)
 
+        # SELFDESTRUCT deletes the account only if it was created in the same transaction (EIP-6780)
+        ex.created_in_tx.add(new_addr)
+
         # existing storage may not be empty and reset here
         ex.storage[new_addr] = self.mk_storagedata()
         ex.transient_storage[new_addr] = self.mk_storagedata()
@@ -3139,6 +3155,11 @@ class SEVM:
 
             elif subcall.output.error is None:
                 deployed_bytecode = subcall.output.data
+
+                # accounts self-destructed in the subcall are deleted at the end of the transaction
+                new_ex.context.output.accounts_to_delete |= (
+                    subcall.output.accounts_to_delete
+                )
 
                 # new contract code, will revert if data is None
                 new_code = Contract(deployed_bytecode)
@@ -3192,6 +3213,7 @@ class SEVM:
             #
             cnts=ex.cnts,
             nonces=ex.nonces,
+            created_in_tx=ex.created_in_tx,
             sha3s=ex.sha3s,
             storages=ex.storages,
             balances=ex.balances,
@@ -3464,6 +3486,7 @@ class SEVM:
             alias=ex.alias.copy(),
             cnts=deepcopy(ex.cnts),
             nonces=deepcopy(ex.nonces),
+            created_in_tx=set(ex.created_in_tx),
             sha3s=ex.sha3s.copy(),
             storages=ex.storages.copy(),
             balances=ex.balances.copy(),
@@ -3555,6 +3578,7 @@ class SEVM:
             #
             cnts=deepcopy(ex.cnts),
             nonces=deepcopy(ex.nonces),
+            created_in_tx=set(ex.created_in_tx),
             sha3s=ex.sha3s.copy(),
             storages=ex.storages.copy(),
             balances=ex.balances.copy(),
@@ -3619,6 +3643,40 @@ class SEVM:
         # If(idx == 0, Extract(255, 248, w), If(idx == 1, Extract(247, 240, w), ..., If(idx == 31, Extract(7, 0, w), 0)...))
         return ZeroExt(248, gen_nested_ite(0))
 
+    def selfdestruct(self, ex: Exec) -> None:
+        """
+        SELFDESTRUCT with the semantics introduced by EIP-6780 (Cancun):
+        - the whole balance of the executing account is sent to the beneficiary;
+        - the account is deleted, at the end of the transaction, only if it was
+          created in the same transaction. In that case, a balance sent to itself
+          is burnt. Otherwise, code, storage and nonce are left untouched.
+        - the current frame halts successfully with empty return data.
+        """
+        beneficiary = uint160(ex.st.pop())
+
+        if ex.message().is_static:
+            raise WriteInStaticContext(ex.context_str())
+
+        this = ex.this()
+        balance = BV(ex.balance_of(this))
+        self.transfer_value(ex, this, beneficiary.as_z3(), balance)
+
+        if this in ex.created_in_tx:
+            ex.context.output.accounts_to_delete.add(this)
+
+        ex.halt(data=ByteVec())
+
+    def delete_accounts(self, ex: Exec, addrs: set[Address]) -> None:
+        """Deletes the accounts self-destructed in the transaction that just ended."""
+        for addr in addrs:
+            if addr in ex.code:
+                del ex.code[addr]
+            ex.storage[addr] = self.mk_storagedata()
+            ex.transient_storage[addr] = self.mk_storagedata()
+            ex.balance_update(addr, ZERO)
+            ex.set_nonce(addr, 0)
+            ex.created_in_tx.discard(addr)
+
     def run_message(self, pre_ex: Exec, message: Message, path: Path) -> Iterator[Exec]:
         """
         Executes the given transaction from the given input state.
@@ -3654,6 +3712,9 @@ class SEVM:
         yield from self.run(ex0)
 
     def run(self, ex0: Exec) -> Iterator[Exec]:
+        # each call to run() executes a new transaction
+        ex0.created_in_tx = set()
+
         next_ex: Exec | None = ex0
         stack: Worklist = Worklist()
 
@@ -3675,6 +3736,8 @@ class SEVM:
 
             # if it's at the top-level, there is no callback; yield the current execution state
             if ex.callback is None:
+                if output.error is None and output.accounts_to_delete:
+                    self.delete_accounts(ex, output.accounts_to_delete)
                 stack.completed_paths += 1
                 yield ex
 
@@ -4295,6 +4358,11 @@ class SEVM:
                     w1 = ex.int_of(state.popi(), "symbolic SIGNEXTEND size")
                     w2 = state.popi()
                     state.push(w2.signextend(w1))
+
+                elif opcode == OP_SELFDESTRUCT:
+                    self.selfdestruct(ex)
+                    yield from finalize(ex)
+                    continue
 
                 else:
                     # TODO: switch to InvalidOpcode when we have full opcode coverage
