@@ -731,12 +731,20 @@ def refine_keccak(ctx: PathContext, solver_output: SolverOutput) -> SolverOutput
             query=SMTQuery(base_smtlib + "".join(facts.values()), ctx.query.assertions),
             suffix=f".keccak{round + 1}",
         )
+        last_sat_output = solver_output
         solver_output = solve_low_level(refined_ctx)
 
         # an unsat core of the refined query may depend on the (unnamed) keccak facts,
         # so it cannot be reused for other queries
         if solver_output.unsat_core is not None:
             solver_output = replace(solver_output, unsat_core=None)
+
+        # if the refined query cannot be decided (timeout, solver error), keep the last
+        # counterexample rather than dropping it: only unsat proves its absence
+        if solver_output.result not in (sat, unsat):
+            verbose(f"  Refined query result: {solver_output.result}")
+            solver_output = last_sat_output
+            break
 
     # the model still relies on keccak values that may not exist
     verbose("  Keccak values of the model are not consistent with keccak256")

@@ -1,5 +1,6 @@
 import pytest
 from eth_hash.auto import keccak
+from z3 import sat, unknown, unsat
 
 from dolmos.solve import (
     ModelVariable,
@@ -155,3 +156,49 @@ def test_sha3_arg_decls():
         "(declare-fun sha3arg_1 () (_ BitVec 512))\n"
         "(assert (= sha3arg_1 (concat a b)))\n"
     )
+
+
+def _refine_keccak_setup(tmp_path, monkeypatch, refined_results):
+    """runs refine_keccak on a sat model whose keccak preimage is 0, with mocked solver results"""
+    import dolmos.solve as solve_mod
+    from dolmos.config import default_config
+    from dolmos.sevm import SMTQuery
+    from dolmos.solve import PathContext, PotentialModel, SolverOutput, SolvingContext
+
+    ctx = PathContext(
+        args=default_config(),
+        path_id=0,
+        solving_ctx=SolvingContext(dump_dir=tmp_path),
+        query=SMTQuery("", []),
+        sha3_args=((256, "p_x_uint256_00"),),
+    )
+
+    def mk_output(result, index):
+        query_file = str(tmp_path / f"{index}.smt2")
+        with open(f"{query_file}.out", "w") as f:
+            f.write(f"(define-fun sha3arg_0 () (_ BitVec 256) (_ bv{index} 256))\n")
+        model = PotentialModel(model={}, is_valid=True) if result == sat else None
+        return SolverOutput(result, 0, 0, query_file, model=model)
+
+    outputs = iter(mk_output(r, i + 1) for i, r in enumerate(refined_results))
+    monkeypatch.setattr(solve_mod, "solve_low_level", lambda _ctx: next(outputs))
+    return solve_mod.refine_keccak(ctx, mk_output(sat, 0))
+
+
+def test_refine_keccak_unsat(tmp_path, monkeypatch):
+    # the refined query is unsat: no counterexample under the real keccak values
+    assert _refine_keccak_setup(tmp_path, monkeypatch, [unsat]).result == unsat
+
+
+def test_refine_keccak_undecided_keeps_counterexample(tmp_path, monkeypatch):
+    # the refined query times out: the counterexample is kept, as potentially invalid
+    out = _refine_keccak_setup(tmp_path, monkeypatch, [unknown])
+    assert out.result == sat
+    assert not out.model.is_valid
+
+
+def test_refine_keccak_rounds_exhausted(tmp_path, monkeypatch):
+    # every round picks a new preimage: potentially invalid after the last round
+    out = _refine_keccak_setup(tmp_path, monkeypatch, [sat, sat, sat])
+    assert out.result == sat
+    assert not out.model.is_valid

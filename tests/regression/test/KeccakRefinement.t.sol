@@ -4,6 +4,11 @@ pragma solidity >=0.8.0 <0.9.0;
 // a16z/halmos#562: keccak256 is uninterpreted, so the solver may assign to a symbolic
 // preimage a hash value that differs from the real one. Such counterexamples are checked
 // against the real keccak256 values, and reported as potentially invalid if they do not agree.
+//
+// The solidity storage layout is required: the generic layout decodes hashed storage keys
+// structurally, so a hash can never be equal to the plain key written in setUp, and the
+// counterexample path is pruned during exploration.
+/// @custom:dolmos --storage-layout solidity
 contract KeccakRefinementTest {
     mapping(uint256 => uint256) balances;
 
