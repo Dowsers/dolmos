@@ -4148,6 +4148,44 @@
                 "num_bounded_loops": null
             }
         ],
+        "test/PrecomputedSlots.t.sol:PrecomputedSlotsTest": [
+            {
+                "name": "check_mapping_literal_slot()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_nested_mapping_literal_slot()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_struct_field_literal_slot()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_write_after_literal_slot()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
         "test/Proxy.t.sol:ProxyTest": [
             {
                 "name": "check_foo(uint256,uint256,address)",
@@ -6210,9 +6248,9 @@
                 "num_bounded_loops": null
             },
             {
-                "name": "check_keccak_slot_2_fail(uint256)",
-                "exitcode": 1,
-                "num_models": 1,
+                "name": "check_keccak_slot_2_beyond_precomputed_pass(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
                 "models": null,
                 "num_paths": null,
                 "time": null,

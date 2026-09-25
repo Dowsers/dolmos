@@ -1928,6 +1928,7 @@ class SolidityStorage(Storage):
     def load(cls, ex: Exec, storage: dict, addr: Any, loc: Word) -> Word:
         (slot, keys, num_keys, size_keys) = cls.get_key_structure(ex, loc)
 
+        cls.migrate_flat_slot(ex, storage, addr, loc, slot, keys)
         cls.init(ex, storage, addr, slot, keys, num_keys, size_keys)
 
         storage_addr = storage[addr]
@@ -1950,6 +1951,7 @@ class SolidityStorage(Storage):
     def store(cls, ex: Exec, storage: dict, addr: Any, loc: Any, val: Any) -> None:
         (slot, keys, num_keys, size_keys) = cls.get_key_structure(ex, loc)
 
+        cls.migrate_flat_slot(ex, storage, addr, loc, slot, keys)
         cls.init(ex, storage, addr, slot, keys, num_keys, size_keys)
 
         storage_addr = storage[addr]
@@ -1957,6 +1959,51 @@ class SolidityStorage(Storage):
         if num_keys == 0:
             storage_addr[slot, num_keys, size_keys] = val
             return
+
+        new_storage_var = Array(
+            f"storage_{id_str(addr)}_{slot}_{num_keys}_{size_keys}_{uid()}_{1 + len(ex.storages):>02}",
+            BitVecSorts[size_keys],
+            BitVecSort256,
+        )
+        new_storage = Store(storage_addr[slot, num_keys, size_keys], concat(keys), val)
+        ex.path.append(new_storage_var == new_storage)
+
+        storage_addr[slot, num_keys, size_keys] = new_storage_var
+        ex.storages[new_storage_var] = new_storage
+
+    @classmethod
+    def migrate_flat_slot(
+        cls, ex: Exec, storage: dict, addr: Any, loc: Any, slot: int, keys: tuple
+    ) -> None:
+        """
+        Move a value stored under a raw concrete slot to its structured location.
+
+        A concrete slot is decoded as `(slot, keys)` only if the keccak preimage of
+        the slot is known, i.e. once a SHA3 producing it has been executed (or it is
+        in the precomputed registry). The optimizer (notably via-IR) may constant-fold
+        `keccak256(k . p)` into a PUSH32 literal, e.g. in a constructor writing
+        `m[k] = v`, while the runtime code computes the same slot with SHA3.
+        The first access is then stored under the flat key `(0x<hash>,)` and the
+        later ones under `(p, k)`, so the value written by the former is lost
+        (a16z/halmos#579). When a structured access is resolved from a concrete
+        slot, the flat entry, if any, is moved to the structured location first.
+        """
+        if not keys:
+            return
+
+        loc = normalize(loc)
+        if not is_bv_value(loc):
+            return
+
+        flat_key = (loc.as_long(), 0, 0)
+        storage_addr = storage[addr]
+        if flat_key not in storage_addr:
+            return
+
+        val = storage_addr._mapping.pop(flat_key)
+        num_keys = len(keys)
+        size_keys = cls.bitsize(keys)
+        cls.init(ex, storage, addr, slot, keys, num_keys, size_keys)
 
         new_storage_var = Array(
             f"storage_{id_str(addr)}_{slot}_{num_keys}_{size_keys}_{uid()}_{1 + len(ex.storages):>02}",
@@ -2083,8 +2130,10 @@ class GenericStorage(Storage):
 
     @classmethod
     def load(cls, ex: Exec, storage: dict, addr: Any, loc: Word) -> Word:
+        raw_loc = loc
         loc = cls.decode(ex, loc)
         size_keys = loc.size()
+        cls.migrate_flat_slot(ex, storage, addr, raw_loc, loc)
 
         cls.init(ex, storage, addr, loc, size_keys)
 
@@ -2100,8 +2149,10 @@ class GenericStorage(Storage):
 
     @classmethod
     def store(cls, ex: Exec, storage: dict, addr: Any, loc: Any, val: Any) -> None:
+        raw_loc = loc
         loc = cls.decode(ex, loc)
         size_keys = loc.size()
+        cls.migrate_flat_slot(ex, storage, addr, raw_loc, loc)
 
         cls.init(ex, storage, addr, loc, size_keys)
 
@@ -2115,6 +2166,58 @@ class GenericStorage(Storage):
         new_storage = Store(storage_addr[size_keys], loc, val)
         ex.path.append(new_storage_var == new_storage)
 
+        storage_addr[size_keys] = new_storage_var
+        ex.storages[new_storage_var] = new_storage
+
+    @classmethod
+    def migrate_flat_slot(
+        cls, ex: Exec, storage: dict, addr: Any, raw_loc: Any, loc: BitVecRef
+    ) -> None:
+        """
+        Same as SolidityStorage.migrate_flat_slot (a16z/halmos#579): a value written
+        under the raw 256-bit concrete slot, before its keccak preimage was known,
+        is copied to the decoded location. Each raw slot is migrated at most once,
+        so that later writes to the decoded location are not overwritten.
+        """
+        raw_loc = normalize(raw_loc)
+        if not is_bv_value(raw_loc) or eq(raw_loc, loc):
+            return
+
+        storage_addr = storage[addr]
+        flat_size = raw_loc.size()
+        if flat_size not in storage_addr:
+            return
+
+        migrated = storage_addr.__dict__.setdefault("migrated_slots", set())
+        raw_int = raw_loc.as_long()
+        if raw_int in migrated:
+            return
+
+        # only migrate slots that were explicitly written under the raw key
+        arr = storage_addr[flat_size]
+        written = False
+        while arr in ex.storages:
+            store = ex.storages[arr]
+            if store.decl().name() != "store" or store.num_args() != 3:
+                break
+            if eq(store.arg(1), raw_loc):
+                written = True
+                break
+            arr = store.arg(0)
+        if not written:
+            return
+
+        migrated.add(raw_int)
+        val = ex.select(storage_addr[flat_size], raw_loc, ex.storages)
+        size_keys = loc.size()
+        cls.init(ex, storage, addr, loc, size_keys)
+        new_storage_var = Array(
+            f"storage_{id_str(addr)}_{size_keys}_{uid()}_{1 + len(ex.storages):>02}",
+            BitVecSorts[size_keys],
+            BitVecSort256,
+        )
+        new_storage = Store(storage_addr[size_keys], loc, val)
+        ex.path.append(new_storage_var == new_storage)
         storage_addr[size_keys] = new_storage_var
         ex.storages[new_storage_var] = new_storage
 

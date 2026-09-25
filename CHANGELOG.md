@@ -32,6 +32,10 @@ All notable changes to dolmos are documented here. The format follows
   Concrete inputs are now evaluated exactly; MODEXP follows EIP-198 (zero-padded
   input, output on `len(M)` bytes) and EIP-7823 (lengths above 1024 bytes make
   the call fail), and its symbolic model guarantees `result < M` (halmos#402)
+- storage slots written as precomputed keccak256 literals (e.g. constant-folded by the
+  via-IR optimizer in a constructor) and read through SHA3 at runtime now hit the same
+  storage cell, instead of reading zero and reporting a false counterexample; applies to
+  both storage layouts (halmos#579)
 
 ## [0.1.0] - 2026-09-22
 
