@@ -30,6 +30,13 @@ does, therefore agrees with the executor.
 `vm.resetNonce`, with foundry's semantics: `setNonce` only raises a nonce,
 `resetNonce` gives 0 to EOAs and 1 to accounts with code.
 
+**File cheatcodes.** `vm.readFile`, `vm.readFileBinary`, `vm.parseBytes` and
+`vm.projectRoot`, so a test can deploy bytecode compiled outside solc (Huff, for
+instance) from a file. Reads are subject to `fs_permissions` in `foundry.toml`,
+resolved with `forge config` and applied as foundry does (paths normalized
+against the project root, most specific permission wins, denied by default), so
+a test that reads a file passes or fails the same way under `forge test`.
+
 **Fusaka / Cancun opcodes.** `CLZ` (EIP-7939), with a concrete fast path and a
 logarithmic symbolic encoding, plus `BLOBHASH` and `BLOBBASEFEE` (EIP-4844).
 

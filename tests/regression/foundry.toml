@@ -9,5 +9,13 @@ optimizer = true
 
 force = false
 
+# file cheatcodes (test/File.t.sol): `out` is foundry's default, test/data is read by
+# the tests, and test/data/private checks that a nested denial overrides it
+fs_permissions = [
+    { access = "read", path = "./out" },
+    { access = "read", path = "./test/data" },
+    { access = "none", path = "./test/data/private" },
+]
+
 # compile options used by dolmos (to prevent unnecessary recompilation when running forge test and dolmos together)
 extra_output = ["storageLayout", "metadata"]

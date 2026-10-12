@@ -50,6 +50,7 @@ from dolmos.expectations import (
     parse_expect_emit,
     parse_expect_revert,
 )
+from dolmos.fs import parse_hex_bytes, read_file
 from dolmos.logs import debug
 from dolmos.mapper import BuildOut
 from dolmos.utils import (
@@ -602,6 +603,44 @@ def env_int(arg, **kwargs):
     return ByteVec(int_val)
 
 
+def concrete_string_argument(arg, arg_idx: int, cheatcode: str) -> str:
+    value = extract_string_argument(arg, arg_idx)
+    if not isinstance(value, str):
+        raise NotConcreteError(f"{cheatcode}: expected a concrete string, got {value}")
+    return value
+
+
+def read_file_cheatcode(sevm, arg) -> ByteVec:
+    """vm.readFile(string path) returns (string)"""
+    path = concrete_string_argument(arg, 0, "vm.readFile")
+    data = read_file(sevm.options.root, path, "vm.readFile")
+    try:
+        # like foundry, reject files that are not valid utf-8 text
+        data.decode("utf-8")
+    except UnicodeDecodeError as e:
+        msg = f"vm.readFile: {path} is not valid UTF-8 (use vm.readFileBinary): {e}"
+        raise DolmosException(msg) from e
+    return encode_tuple_bytes(data)
+
+
+def read_file_binary_cheatcode(sevm, arg) -> ByteVec:
+    """vm.readFileBinary(string path) returns (bytes)"""
+    path = concrete_string_argument(arg, 0, "vm.readFileBinary")
+    return encode_tuple_bytes(read_file(sevm.options.root, path, "vm.readFileBinary"))
+
+
+def parse_bytes_cheatcode(arg) -> ByteVec:
+    """vm.parseBytes(string) returns (bytes)"""
+    value = concrete_string_argument(arg, 0, "vm.parseBytes")
+    return encode_tuple_bytes(parse_hex_bytes(value, "vm.parseBytes"))
+
+
+def project_root_cheatcode(sevm) -> ByteVec:
+    """vm.projectRoot() returns (string)"""
+    root = os.path.abspath(sevm.options.root)
+    return encode_tuple_bytes(root.encode("utf-8"))
+
+
 def abi_encode_array_words(values: list[Bool | Address | Word]) -> ByteVec:
     result = ByteVec()
 
@@ -1121,6 +1160,18 @@ class hevm_cheat_code:
     # bytes4(keccak256("envExists(string)"))
     env_exists_sig: int = 0xCE8365F9
 
+    # bytes4(keccak256("readFile(string)"))
+    read_file_sig: int = 0x60F9BB11
+
+    # bytes4(keccak256("readFileBinary(string)"))
+    read_file_binary_sig: int = 0x16ED7BC4
+
+    # bytes4(keccak256("parseBytes(string)"))
+    parse_bytes_sig: int = 0x8F5D232D
+
+    # bytes4(keccak256("projectRoot()"))
+    project_root_sig: int = 0xD930A0E6
+
     @staticmethod
     def handle(sevm, ex, arg: ByteVec, stack) -> ByteVec | None:
         funsig: int = int_of(arg[:4].unwrap(), "symbolic hevm cheatcode")
@@ -1624,6 +1675,22 @@ class hevm_cheat_code:
 
         elif funsig == hevm_cheat_code.env_exists_sig:
             return env_exists(arg)
+
+        # vm.readFile(string) returns (string)
+        elif funsig == hevm_cheat_code.read_file_sig:
+            return read_file_cheatcode(sevm, arg)
+
+        # vm.readFileBinary(string) returns (bytes)
+        elif funsig == hevm_cheat_code.read_file_binary_sig:
+            return read_file_binary_cheatcode(sevm, arg)
+
+        # vm.parseBytes(string) returns (bytes)
+        elif funsig == hevm_cheat_code.parse_bytes_sig:
+            return parse_bytes_cheatcode(arg)
+
+        # vm.projectRoot() returns (string)
+        elif funsig == hevm_cheat_code.project_root_sig:
+            return project_root_cheatcode(sevm)
 
         # vm.expectRevert(...) / vm.expectPartialRevert(...)
         elif funsig in REVERT_SIGNATURES:

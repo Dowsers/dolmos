@@ -9,6 +9,10 @@ All notable changes to dolmos are documented here. The format follows
 
 ### Added
 
+- file cheatcodes `vm.readFile`, `vm.readFileBinary`, `vm.parseBytes` and
+  `vm.projectRoot`, e.g. to deploy Huff bytecode read from a file; reads honor
+  `fs_permissions` from `foundry.toml` with foundry's semantics, and
+  `vm.parseBytes` accepts exactly what foundry accepts (halmos#213)
 - `vm.expectRevert` (all overloads, including the reverter address and `count`
   variants), `vm.expectPartialRevert`, `vm.expectEmit` and
   `vm.expectEmitAnonymous` (including the emitter address and `count` variants),
