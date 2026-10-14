@@ -29,6 +29,13 @@ reproduce the failure. This usually comes from approximations in the symbolic
 model (hash functions, unbounded arrays, precompiles). The test is still
 reported as failing; inspect the counterexample before trusting it.
 
+With `--pretty-counterexamples`, counterexamples relying on the approximation of
+exponentiation are checked against the real `**` (and replaced by a valid
+counterexample, or proven spurious, when possible), and the reason is printed when
+they remain potentially invalid, e.g. a symbolic base and exponent, or keccak256
+values that differ from the real hash function. See
+[pretty counterexamples](pretty-counterexamples.md#potentially-invalid-counterexamples).
+
 ## counterexample-unknown
 
 The solver could not decide whether a failing path is feasible within

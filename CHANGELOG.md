@@ -37,9 +37,26 @@ All notable changes to dolmos are documented here. The format follows
   and `SELFDESTRUCT` deletes the account unconditionally before Cancun. Defaults to the
   `evmVersion` the test contract was compiled for (foundry's `evm_version`), or to the
   latest supported fork, `osaka` (halmos#128)
+- `--pretty-counterexamples` (`-pcex`) prints counterexamples that can be acted upon; see
+  docs/pretty-counterexamples.md:
+  - test arguments decoded with the ABI of the test, with the lengths of dynamic values
+    applied and values rendered by type (decimal, checksummed addresses, strings)
+  - `bytes` holding calldata decoded with the ABIs of the compiled contracts, and calls
+    made with calldata built by `svm.createCalldata` listed (halmos#369)
+  - `bytes4` values rendered as selectors, `0x00000000` as the empty selector of plain
+    ether transfers (halmos#419)
+  - invariant call sequences with concrete senders, values, arguments and timestamps
+  - a forge test replaying each counterexample
+  - duplicate counterexamples hidden, and counted (halmos#398)
+  - potentially invalid counterexamples relying on the approximation of `EXP` checked
+    against the real exponentiation: they are confirmed, replaced by a valid one, or
+    proven spurious; otherwise the reason is printed (halmos#280)
 
 ### Fixed
 
+- `--early-exit` no longer reports the queries cancelled after the first counterexample as
+  solver errors (`executor has been shutdown`), nor saves them as failed queries
+  (halmos#398)
 - SHA256, RIPEMD160 and MODEXP precompiles with symbolic input no longer crash
   with a z3 sort mismatch (input sizes were given in bytes instead of bits).
   Concrete inputs are now evaluated exactly; MODEXP follows EIP-198 (zero-padded

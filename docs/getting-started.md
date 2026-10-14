@@ -223,6 +223,8 @@ For our example, dolmos will identify an input combination where the sender addr
 
 **Tips:**
 
+- Run with `--pretty-counterexamples` (`-pcex`) to get counterexamples decoded with the ABI (arguments, calldata, selectors, invariant call sequences), without duplicates, and with a forge test that replays each of them. See [pretty counterexamples](pretty-counterexamples.md).
+
 - Dolmos focuses solely on assertion violations (i.e., revert with `Panic(1)`), disregarding other revert cases. This means that dolmos doesn't report any inputs that lead to other types of revert. For instance, in our example, any inputs that trigger an overflow in `balanceOfReceiver + amount`, or inputs causing the external contract call to fail will be ignored. To avoid disregarding such inputs, you can utilize an `unchecked` block or a low-level call.
 
 - If you're using an older compiler version (`< 0.8.0`) that uses the `INVALID` opcode for assertion violation, rather than the `Panic(1)` error code, then dolmos will _not_ report any counterexamples by default. In that case, run with `--invalid-as-failure` (the default when the build contains Vyper contracts), or use a custom assertion that reverts with `Panic(1)` upon failure, as shown below:

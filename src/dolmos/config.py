@@ -510,6 +510,18 @@ class Config:
         group=debugging,
     )
 
+    pretty_counterexamples: bool = arg(
+        help=(
+            "print exploitable counterexamples: arguments decoded with the ABI, calldata and "
+            "selectors decoded, concrete call sequences, a forge test replaying each "
+            "counterexample, duplicates hidden, and potentially invalid counterexamples "
+            "checked against the real EXP semantics, with the reason when they remain invalid"
+        ),
+        global_default=False,
+        group=debugging,
+        short="pcex",
+    )
+
     dump_smt_queries: bool = arg(
         help="dump SMT queries for assertion violations",
         global_default=False,

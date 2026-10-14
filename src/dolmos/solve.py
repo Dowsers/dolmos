@@ -11,7 +11,7 @@ from types import MappingProxyType
 from typing import Literal
 
 from eth_hash.auto import keccak
-from z3 import CheckSatResult, Solver, sat, unknown, unsat
+from z3 import CheckSatResult, Solver, is_app, sat, unknown, unsat
 
 from dolmos.calldata import FunctionInfo
 from dolmos.config import Config as DolmosConfig
@@ -20,6 +20,7 @@ from dolmos.logs import (
     error,
     warn,
 )
+from dolmos.pcex import PcexState
 from dolmos.processes import (
     ExecutorRegistry,
     PopenExecutor,
@@ -219,6 +220,9 @@ class FunctionContext:
     # map from path id to execution
     exec_cache: dict[int, Exec] = field(default_factory=dict)
 
+    # shown and hidden counterexamples, with --pretty-counterexamples
+    pcex: PcexState = field(default_factory=PcexState)
+
     def __post_init__(self):
         args = self.args
 
@@ -288,6 +292,10 @@ class PathContext:
     # symbolic keccak preimages of the path, as (bitsize, smtlib term); see mk_sha3_args()
     sha3_args: tuple[tuple[int, str], ...] = ()
 
+    # applications of the EXP abstraction in the path, checked against the real
+    # exponentiation with --pretty-counterexamples; see mk_exp_apps() and refine_exp()
+    exp_apps: "ExpApps | None" = None
+
     # distinguishes the query files of keccak refinement rounds
     suffix: str = ""
 
@@ -306,6 +314,7 @@ class PathContext:
             query=refine(self.query),
             is_refined=True,
             sha3_args=self.sha3_args,
+            exp_apps=self.exp_apps,
             suffix=self.suffix,
         )
 
@@ -333,6 +342,9 @@ class SolverOutput:
 
     # solver error
     error: str | None = None
+
+    # why the model is potentially invalid, when known (shown by --pretty-counterexamples)
+    invalid_reason: str | None = None
 
     @staticmethod
     def from_result(
@@ -557,6 +569,9 @@ def solve_low_level(path_ctx: PathContext) -> SolverOutput:
 
 def solve_end_to_end(ctx: PathContext) -> SolverOutput:
     """Solves the given query, then checks the keccak values the model relies on (see refine_keccak)."""
+    if ctx.exp_apps:
+        return solve_with_exp_refinement(ctx)
+
     if not ctx.sha3_args or ctx.args.keccak_refinement_rounds <= 0:
         return _solve_end_to_end(ctx)
 
@@ -749,7 +764,424 @@ def refine_keccak(ctx: PathContext, solver_output: SolverOutput) -> SolverOutput
     # the model still relies on keccak values that may not exist
     verbose("  Keccak values of the model are not consistent with keccak256")
     potential_model = PotentialModel(model=solver_output.model.model, is_valid=False)
-    return replace(solver_output, model=potential_model)
+    return replace(
+        solver_output, model=potential_model, invalid_reason=KECCAK_INVALID_REASON
+    )
+
+
+KECCAK_INVALID_REASON = (
+    "relies on keccak256 values that differ from the real hash function "
+    "(rerun with a larger --keccak-refinement-rounds)"
+)
+
+
+# EXP refinement (a16z/halmos#280), with --pretty-counterexamples
+#
+# EXP is modeled by the uninterpreted function f_evm_exp_256 when the exponent is symbolic,
+# or when it is a constant above --smt-exp-by-const and the base is symbolic. A model may
+# thus give `x ** 3` any value, and the counterexample is only reported as "potentially
+# invalid", without saying why.
+#
+# With --pretty-counterexamples, each application `r = f_evm_exp_256(b, e)` of the path and
+# its operands are exposed in the model, and compared with the real exponentiation:
+# - if `r == b ** e mod 2**256` for every application, the model does not depend on the
+#   abstraction, and the counterexample is valid;
+# - otherwise the query is solved again with facts that hold for the real EXP, so that every
+#   real counterexample is kept, and unsat proves that there is none:
+#   - exact encodings, added once: a constant exponent is expanded by square and multiply,
+#     and a constant base is tabulated over the exponents below 256 (an even base is then
+#     exact, as b ** e == 0 mod 2**256 for e >= 256);
+#   - the real value at the operands of each disagreeing application, `f(b, e) == b ** e`;
+#   up to PCEX_EXP_REFINEMENT_ROUNDS times. Keccak values are checked in the same loop
+#   (see refine_keccak), with --keccak-refinement-rounds additional rounds.
+# A model that still disagrees is reported as potentially invalid, with the reason.
+
+EXP_NAME = "f_evm_exp_256"
+PCEX_EXP_REFINEMENT_ROUNDS = 3
+MAX_EXP_APPS = 128
+
+# constant exponents up to this bound are expanded by square and multiply
+MAX_EXPANDED_EXPONENT = 2**64
+
+WORD_MODULUS = 2**256
+
+exp_arg_pattern = re.compile(
+    r"\(\s*define-fun\s+\|?pcex_exp([ber])_(\d+)\|?\s+\(\)\s+\(_\s+BitVec\s+256\)\s+"
+    r"(#x[0-9a-fA-F]+|#b[01]+|\(_\s+bv\d+\s+\d+\))\s*\)"
+)
+
+abstraction_name_pattern = re.compile(r"f_evm_[a-z]+_\d+")
+
+UNDECIDED_REASON = (
+    "the refined query could not be decided "
+    "(rerun with a larger --solver-timeout-assertion)"
+)
+
+
+@dataclass(frozen=True)
+class ExpApp:
+    """An application of the EXP abstraction, as smtlib terms (no z3 object: crosses threads)"""
+
+    base: str
+    exponent: str
+
+    # values of the operands, when they are constants
+    base_value: int | None = None
+    exponent_value: int | None = None
+
+    def describe(self) -> str:
+        base = "x" if self.base_value is None else str(self.base_value)
+        exponent = "y" if self.exponent_value is None else str(self.exponent_value)
+        return f"{base} ** {exponent}"
+
+
+@dataclass(frozen=True)
+class ExpApps:
+    apps: tuple[ExpApp, ...] = ()
+
+    # false if the path has more applications than MAX_EXP_APPS
+    complete: bool = True
+
+    def __bool__(self) -> bool:
+        return bool(self.apps)
+
+    def __len__(self) -> int:
+        return len(self.apps)
+
+
+def mk_exp_apps(conditions) -> ExpApps:
+    """Returns the applications of the EXP abstraction in the given path conditions"""
+    apps: dict[tuple[int, int], ExpApp] = {}
+    complete = True
+    visited = set()
+    stack = list(conditions)
+    while stack:
+        expr = stack.pop()
+        expr_id = expr.get_id()
+        if expr_id in visited:
+            continue
+        visited.add(expr_id)
+
+        if not is_app(expr):
+            continue
+
+        if expr.num_args() == 2 and expr.decl().name() == EXP_NAME:
+            base, exponent = expr.arg(0), expr.arg(1)
+            key = (base.get_id(), exponent.get_id())
+            if key not in apps:
+                if len(apps) >= MAX_EXP_APPS:
+                    complete = False
+                else:
+                    apps[key] = ExpApp(
+                        base=base.sexpr(),
+                        exponent=exponent.sexpr(),
+                        base_value=base.as_long() if is_bv_value(base) else None,
+                        exponent_value=(
+                            exponent.as_long() if is_bv_value(exponent) else None
+                        ),
+                    )
+
+        stack.extend(expr.children())
+
+    return ExpApps(tuple(apps.values()), complete)
+
+
+def exp_names(i: int) -> tuple[str, str, str]:
+    """names of the constants holding the base, exponent and result of the i-th application"""
+    return f"pcex_expb_{i}", f"pcex_expe_{i}", f"pcex_expr_{i}"
+
+
+def exp_arg_decls(apps: ExpApps) -> str:
+    result = []
+    for i, app in enumerate(apps.apps):
+        b, e, r = exp_names(i)
+        result.append(
+            f"(declare-fun {b} () (_ BitVec 256))\n"
+            f"(assert (= {b} {app.base}))\n"
+            f"(declare-fun {e} () (_ BitVec 256))\n"
+            f"(assert (= {e} {app.exponent}))\n"
+            f"(declare-fun {r} () (_ BitVec 256))\n"
+            f"(assert (= {r} ({EXP_NAME} {b} {e})))\n"
+        )
+    return "".join(result)
+
+
+def parse_exp_arg_values(solver_stdout: str) -> dict[int, dict[str, int]]:
+    """Returns {index: {"b": base, "e": exponent, "r": result}} from the model"""
+    values: dict[int, dict[str, int]] = {}
+    for match in exp_arg_pattern.finditer(solver_stdout):
+        kind, index = match.group(1), int(match.group(2))
+        values.setdefault(index, {})[kind] = parse_const_value(match.group(3))
+    return values
+
+
+def bv256(value: int) -> str:
+    return f"(_ bv{value % WORD_MODULUS} 256)"
+
+
+def exp_table(base: int, exponent: str, otherwise: str) -> str:
+    """
+    `base ** exponent` for a constant base, as a nested ite over the exponents below 256.
+
+    For an even base, the table is exact: b ** e == 0 mod 2**256 for e >= 256. For an odd
+    base, larger exponents fall back to `otherwise`.
+    """
+    if base % WORD_MODULUS == 1:
+        return bv256(1)
+
+    entries = []
+    value = 1
+    for _ in range(256):
+        entries.append(value)
+        value = value * base % WORD_MODULUS
+
+    if base % 2 == 0:
+        while entries and entries[-1] == 0:
+            entries.pop()
+        result = bv256(0)
+    else:
+        result = otherwise
+
+    for k in reversed(range(len(entries))):
+        result = f"(ite (= {exponent} {bv256(k)}) {bv256(entries[k])} {result})"
+    return result
+
+
+def exp_square_and_multiply(i: int, exponent: int) -> str:
+    """`pcex_expr_i == pcex_expb_i ** exponent`, with O(log exponent) multiplications"""
+    b, _, r = exp_names(i)
+
+    if exponent == 0:
+        return f"(assert (= {r} {bv256(1)}))\n"
+
+    lines = []
+    square, acc, bit = b, None, 0
+    while True:
+        if (exponent >> bit) & 1:
+            if acc is None:
+                acc = square
+            else:
+                product = f"pcex_expm_{i}_{bit}"
+                lines.append(
+                    f"(declare-fun {product} () (_ BitVec 256))\n"
+                    f"(assert (= {product} (bvmul {acc} {square})))\n"
+                )
+                acc = product
+        bit += 1
+        if exponent >> bit == 0:
+            break
+        next_square = f"pcex_exps_{i}_{bit}"
+        lines.append(
+            f"(declare-fun {next_square} () (_ BitVec 256))\n"
+            f"(assert (= {next_square} (bvmul {square} {square})))\n"
+        )
+        square = next_square
+
+    lines.append(f"(assert (= {r} {acc}))\n")
+    return "".join(lines)
+
+
+def exact_exp_fact(i: int, app: ExpApp) -> str:
+    """Exact (or partial, for an odd constant base) definition of the i-th application"""
+    _, e, r = exp_names(i)
+    if app.base_value is not None:
+        return f"(assert (= {r} {exp_table(app.base_value, e, r)}))\n"
+    if app.exponent_value is not None and app.exponent_value < MAX_EXPANDED_EXPONENT:
+        return exp_square_and_multiply(i, app.exponent_value)
+    return ""
+
+
+def exp_point_fact(base: int, exponent: int) -> str:
+    result = pow(base, exponent, WORD_MODULUS)
+    return (
+        f"(assert (= ({EXP_NAME} {bv256(base)} {bv256(exponent)}) {bv256(result)}))\n"
+    )
+
+
+def short_int(value: int) -> str:
+    return str(value) if value < 10**20 else hex(value)
+
+
+def exp_invalid_reason(
+    apps: ExpApps, values: dict, disagree: list[int], missing: list[int]
+) -> str:
+    details = []
+    advice = set()
+    for i in (missing + disagree)[:2]:
+        app = apps.apps[i]
+        what = app.describe()
+        if app.base_value is None and app.exponent_value is None:
+            what += " (symbolic base and exponent)"
+            advice.add(
+                "constrain the operands with vm.assume (e.g. exponent < 256) "
+                "or make the base or the exponent constant"
+            )
+        elif app.base_value is not None:
+            advice.add("constrain the exponent with vm.assume (e.g. exponent < 256)")
+        else:
+            what += " (exponent too large to expand)"
+
+        v = values.get(i, {})
+        if {"b", "e", "r"} <= v.keys():
+            b, e, r = v["b"], v["e"], v["r"]
+            real = pow(b, e, WORD_MODULUS)
+            details.append(
+                f"{what}: the model takes {short_int(b)} ** {short_int(e)} = "
+                f"{short_int(r)} instead of {short_int(real)}"
+            )
+        else:
+            details.append(f"{what}: the solver did not report its operands")
+
+    more = len(missing) + len(disagree) - len(details)
+    if more > 0:
+        details.append(f"and {more} more")
+
+    reason = "EXP is approximated: " + "; ".join(details)
+    if advice:
+        reason += " (" + "; ".join(sorted(advice)) + ")"
+    return reason
+
+
+def solve_with_exp_refinement(ctx: PathContext) -> SolverOutput:
+    """solve_end_to_end() for paths with EXP applications, with --pretty-counterexamples"""
+    decls = exp_arg_decls(ctx.exp_apps)
+    if ctx.sha3_args and ctx.args.keccak_refinement_rounds > 0:
+        decls += sha3_arg_decls(ctx.sha3_args)
+
+    ctx = replace(ctx, query=SMTQuery(ctx.query.smtlib + decls, ctx.query.assertions))
+    return refine_exp(ctx, _solve_end_to_end(ctx))
+
+
+def refine_exp(ctx: PathContext, solver_output: SolverOutput) -> SolverOutput:
+    verbose = print if ctx.args.verbose >= 1 else lambda *args, **kwargs: None
+
+    apps = ctx.exp_apps
+    use_keccak = bool(ctx.sha3_args) and ctx.args.keccak_refinement_rounds > 0
+    max_rounds = PCEX_EXP_REFINEMENT_ROUNDS + (
+        ctx.args.keccak_refinement_rounds if use_keccak else 0
+    )
+
+    # the abstractions of multiplication and division are replaced by their definitions
+    base_smtlib = refine(ctx.query).smtlib
+
+    exact, points, keccaks = None, {}, {}
+    solved_refined = False
+    last_sat = None
+    reasons = []
+
+    values, disagree, missing, others = {}, [], [], []
+    new_keccaks, keccak_consistent = {}, True
+
+    for round in range(max_rounds + 1):
+        result, model = solver_output.result, solver_output.model
+        if result == unsat:
+            return solver_output
+
+        if result != sat or model is None:
+            if last_sat is None:
+                return solver_output
+            # keep the last counterexample rather than dropping it: only unsat proves its absence
+            verbose(f"  Refined query result: {result}")
+            reasons.append(UNDECIDED_REASON)
+            break
+
+        last_sat = solver_output
+
+        try:
+            with open(f"{solver_output.query_file}.out") as f:
+                stdout = f.read()
+        except OSError:
+            reasons.append("the solver output could not be read")
+            break
+
+        values = parse_exp_arg_values(stdout)
+        disagree, missing = [], []
+        for i in range(len(apps)):
+            v = values.get(i, {})
+            if not {"b", "e", "r"} <= v.keys():
+                missing.append(i)
+            elif pow(v["b"], v["e"], WORD_MODULUS) != v["r"]:
+                disagree.append(i)
+
+        others = sorted(set(abstraction_name_pattern.findall(stdout)) - {EXP_NAME})
+
+        new_keccaks, keccak_consistent = {}, True
+        if use_keccak:
+            for size, value in parse_sha3_arg_values(stdout).values():
+                if size % 8 or (size, value) in keccaks:
+                    continue
+                fact = keccak_fact(size, value)
+                if fact is None:
+                    keccak_consistent = False
+                    continue
+                new_keccaks[size, value] = fact[0]
+
+        exp_ok = apps.complete and not disagree and not missing
+        if exp_ok and not others and not new_keccaks and keccak_consistent:
+            verbose("  The model agrees with the real EXP")
+            return replace(
+                solver_output,
+                model=PotentialModel(model=model.model, is_valid=True),
+            )
+
+        if round == max_rounds or not apps.complete:
+            break
+
+        added = False
+        if exact is None and (disagree or missing):
+            exact = "".join(exact_exp_fact(i, app) for i, app in enumerate(apps.apps))
+            added = bool(exact)
+
+        for i in disagree:
+            key = (values[i]["b"], values[i]["e"])
+            if key not in points:
+                points[key] = exp_point_fact(*key)
+                added = True
+
+        if new_keccaks:
+            keccaks.update(new_keccaks)
+            added = True
+
+        # the first refined query also replaces the abstractions of mul/div by their definitions
+        if not added and (solved_refined or not others):
+            break
+
+        verbose(
+            f"  Checking again with {len(points)} EXP value(s), "
+            f"{len(keccaks)} keccak value(s) (round {round + 1})"
+        )
+        refined_ctx = replace(
+            ctx,
+            query=SMTQuery(
+                base_smtlib
+                + (exact or "")
+                + "".join(points.values())
+                + "".join(keccaks.values()),
+                ctx.query.assertions,
+            ),
+            suffix=f".pcex{round + 1}",
+        )
+        solver_output = solve_low_level(refined_ctx)
+        solved_refined = True
+
+        # an unsat core of the refined query may depend on the (unnamed) facts,
+        # so it cannot be reused for other queries
+        if solver_output.unsat_core is not None:
+            solver_output = replace(solver_output, unsat_core=None)
+
+    if not apps.complete:
+        reasons.append(f"too many exponentiations to check (more than {MAX_EXP_APPS})")
+    if others:
+        reasons.append(f"relies on {', '.join(others)}, which is not modeled exactly")
+    if disagree or missing:
+        reasons.append(exp_invalid_reason(apps, values, disagree, missing))
+    if use_keccak and (new_keccaks or not keccak_consistent):
+        reasons.append(KECCAK_INVALID_REASON)
+
+    reason = "; ".join(reasons) or "relies on an approximation of the EVM semantics"
+    verbose(f"  Potentially invalid counterexample: {reason}")
+    potential_model = PotentialModel(model=last_sat.model.model, is_valid=False)
+    return replace(last_sat, model=potential_model, invalid_reason=reason)
 
 
 def check_unsat_cores(query: SMTQuery, unsat_cores: list[list]) -> bool:

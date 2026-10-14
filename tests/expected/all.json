@@ -4385,6 +4385,53 @@
                 "num_bounded_loops": null
             }
         ],
+        "test/PrettyCex.t.sol:PrettyCexTest": [
+            {
+                "name": "check_pcex_calldata(bytes)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_pcex_duplicates(uint256)",
+                "exitcode": 1,
+                "num_models": 3,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_pcex_exp(uint256)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_pcex_selector(bytes)",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "invariant_pcex_balance()",
+                "exitcode": 1,
+                "num_models": 1,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
         "test/Proxy.t.sol:ProxyTest": [
             {
                 "name": "check_foo(uint256,uint256,address)",

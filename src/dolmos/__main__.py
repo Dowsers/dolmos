@@ -95,6 +95,13 @@ from dolmos.logs import (
     warn_code,
 )
 from dolmos.mapper import BuildOut, DeployAddressMapper
+from dolmos.pcex import (
+    CexLayout,
+    RenderedCex,
+    collect_layout,
+    render_counterexample,
+    repro_function,
+)
 from dolmos.processes import ExecutorRegistry, ShutdownError
 from dolmos.sevm import (
     EMPTY_BALANCE,
@@ -123,6 +130,7 @@ from dolmos.solve import (
     PathContext,
     SolverOutput,
     dirname,
+    mk_exp_apps,
     mk_sha3_args,
     solve_end_to_end,
     solve_low_level,
@@ -981,6 +989,17 @@ class CounterexampleHandler:
 
         query: SMTQuery = ex.path.to_smt2(args)
 
+        # with --pretty-counterexamples, collect what is needed to render the counterexample
+        # (on this thread, as it reads z3 objects), and the EXP applications to be checked
+        layout, exp_apps = None, None
+        if args.pretty_counterexamples:
+            try:
+                layout = collect_layout(ctx, ex, self.is_invariant, self.is_probe)
+            except Exception as e:
+                debug(f"could not collect the counterexample layout: {e!r}")
+            if "f_evm_exp_256" in query.smtlib:
+                exp_apps = mk_exp_apps(ex.path.conditions)
+
         # beware: because this object crosses thread boundaries, we must be careful to
         # avoid any reference to z3 objects
         path_ctx = PathContext(
@@ -989,6 +1008,7 @@ class CounterexampleHandler:
             query=query,
             solving_ctx=ctx.solving_ctx,
             sha3_args=mk_sha3_args(ex.sha3s) if args.keccak_refinement_rounds else (),
+            exp_apps=exp_apps,
         )
 
         # ShutdownError may be raised here and will be handled by the caller
@@ -999,33 +1019,46 @@ class CounterexampleHandler:
                 ex=ex,
                 path_ctx=path_ctx,
                 description=description,
+                layout=layout,
             )
         )
         self.submitted_futures.append(solve_future)
 
-    def _get_solver_output(self, future: Future, path_ctx: PathContext) -> SolverOutput:
+    def _get_solver_output(
+        self, future: Future, path_ctx: PathContext
+    ) -> SolverOutput | None:
+        """
+        Returns the output of the solver, or None if solving was cancelled because the
+        executor has been shut down (e.g. by --early-exit once a counterexample is found).
+        """
         path_id, query_file = path_ctx.path_id, str(path_ctx.dump_file)
 
         if self.ctx.solving_ctx.executor.is_shutdown():
             # if the thread pool is in the process of shutting down,
             # we want to stop processing remaining models/timeouts/errors, etc.
-            e = "executor has been shutdown"
-            return SolverOutput.from_error(e, path_id=path_id, query_file=query_file)
+            return None
 
         if e := future.exception():
-            if not is_benign_solving_error(e):
-                error(f"encountered exception during assertion solving: {e!r}")
+            if is_benign_solving_error(e):
+                return None
+            error(f"encountered exception during assertion solving: {e!r}")
             return SolverOutput.from_error(e, path_id=path_id, query_file=query_file)
 
         try:
             return future.result()
         except Exception as e:
-            if not is_benign_solving_error(e):
-                error(f"encountered exception during assertion solving: {e!r}")
+            if is_benign_solving_error(e):
+                return None
+            error(f"encountered exception during assertion solving: {e!r}")
             return SolverOutput.from_error(e, path_id=path_id, query_file=query_file)
 
     def _solve_end_to_end_callback(
-        self, future: Future, ex: Exec, path_ctx: PathContext, description: str
+        self,
+        future: Future,
+        ex: Exec,
+        path_ctx: PathContext,
+        description: str,
+        layout: CexLayout | None = None,
     ) -> None:
         """
         Callback function for handling solver results.
@@ -1034,6 +1067,7 @@ class CounterexampleHandler:
             future: The Future object containing the solver result
             ex: The execution state
             description: Optional description of counterexample
+            layout: what is needed to render the counterexample (--pretty-counterexamples)
         """
         # beware: this function may be called from threads other than the main thread,
         # so we must be careful to avoid referencing any z3 objects / contexts
@@ -1041,7 +1075,11 @@ class CounterexampleHandler:
         ctx = self.ctx
         args = ctx.args
 
-        solver_output: SolverOutput = self._get_solver_output(future, path_ctx)
+        solver_output: SolverOutput | None = self._get_solver_output(future, path_ctx)
+        if solver_output is None:
+            # cancelled, e.g. by --early-exit: neither an error nor a result
+            return
+
         ctx.solver_outputs.append(solver_output)
         result, model = solver_output.result, solver_output.model
         path_id = solver_output.path_id
@@ -1063,6 +1101,10 @@ class CounterexampleHandler:
 
         # model could be an empty dict here, so compare to None explicitly
         if model is None:
+            return
+
+        if args.pretty_counterexamples:
+            self._report_pretty_counterexample(ex, solver_output, description, layout)
             return
 
         # mark this probe as reported to avoid duplicate reporting
@@ -1102,6 +1144,113 @@ class CounterexampleHandler:
         # print call sequence for invariant testing
         if sequence := ctx.call_sequences[path_id]:
             print(f"Sequence:\n{sequence}")
+
+    def _report_pretty_counterexample(
+        self,
+        ex: Exec,
+        solver_output: SolverOutput,
+        description: str | None,
+        layout: CexLayout | None,
+    ) -> None:
+        """Reports a counterexample with --pretty-counterexamples (see dolmos.pcex)"""
+        # beware: called from the solver threads, see _solve_end_to_end_callback()
+        ctx = self.ctx
+        args = ctx.args
+        model, path_id = solver_output.model, solver_output.path_id
+
+        rendered = None
+        if layout is not None:
+            try:
+                rendered = render_counterexample(layout, model.model)
+            except Exception as e:
+                debug(f"could not render the counterexample: {e!r}")
+                if args.debug:
+                    traceback.print_exc()
+
+        fun_sig = (layout.fun_sig if layout else ctx.info.sig) or ""
+        if rendered is not None:
+            body = rendered.body
+        else:
+            body = str(model).lstrip("\n").split("\n")
+
+        pcex = ctx.pcex
+        with pcex.lock:
+            if model.is_valid:
+                ctx.valid_counterexamples.append(model)
+            else:
+                ctx.invalid_counterexamples.append(model)
+
+            # mark this probe as reported to avoid duplicate reporting
+            if self.is_probe:
+                ctx.contract_ctx.probes_reported.add(ex.context.message.fun_info)
+
+            # counterexamples with the same values as one already shown are only counted
+            if pcex.admit("\n".join(body), model.is_valid):
+                self._print_pretty_counterexample(
+                    solver_output, description, layout, rendered, body, fun_sig
+                )
+
+        if model.is_valid:
+            # add the stacks from the temporary flamegraph to the global one
+            if self.flamegraph_enabled and self.is_invariant:
+                call_flamegraph.stacks.extend(
+                    self.potential_flamegraphs[path_id].stacks
+                )
+
+            # we have a valid counterexample, so we are eligible for early exit
+            if args.early_exit:
+                debug(f"Shutting down {ctx.info.name}'s solver executor")
+                ctx.solving_ctx.executor.shutdown(wait=False)
+
+    def _print_pretty_counterexample(
+        self,
+        solver_output: SolverOutput,
+        description: str | None,
+        layout: CexLayout | None,
+        rendered: RenderedCex | None,
+        body: list[str],
+        fun_sig: str,
+    ) -> None:
+        """Prints a counterexample shown by _report_pretty_counterexample()"""
+        ctx = self.ctx
+        args = ctx.args
+        model, path_id = solver_output.model, solver_output.path_id
+
+        lines = []
+        if description:
+            lines.append(description)
+
+        if args.verbose >= VERBOSITY_TRACE_COUNTEREXAMPLE:
+            pid_str = f" #{path_id}" if args.verbose >= VERBOSITY_TRACE_PATHS else ""
+            lines.append(f"Trace{pid_str}:")
+            lines.append(ctx.traces[path_id].rstrip("\n"))
+
+        if model.is_valid:
+            lines.append(color_error(f"Counterexample: {fun_sig}"))
+        else:
+            reason = (
+                solver_output.invalid_reason
+                or "relies on an approximation of the EVM semantics"
+            )
+            lines.append(color_warn(f"Counterexample (potentially invalid): {fun_sig}"))
+            lines.append(color_warn(f"    reason: {reason}"))
+
+        lines.extend(body)
+
+        # the symbolic call sequence of invariant testing, replaced by the concrete one
+        sequence = ctx.call_sequences.get(path_id)
+        if sequence and (
+            rendered is None or args.verbose >= VERBOSITY_TRACE_COUNTEREXAMPLE
+        ):
+            lines.append(f"Sequence (symbolic):\n{sequence.rstrip()}")
+
+        if rendered is not None and rendered.repro and model.is_valid:
+            lines.extend(repro_function(layout, rendered, ctx.pcex.shown))
+
+        if not model.is_valid:
+            lines.append(f"(see {COUNTEREXAMPLE_INVALID.url()})")
+
+        print("\n".join(lines))
 
     def _save_failed_query(
         self, path_id: int, solver_output: SolverOutput, failure_type: str
@@ -1341,6 +1490,12 @@ def run_test(ctx: FunctionContext) -> TestResult:
         f"{passfail} {funsig} (paths: {num_execs}, {time_info}, "
         f"bounds: [{', '.join([str(x) for x in dyn_params])}])"
     )
+
+    if args.pretty_counterexamples and (hidden := ctx.pcex.hidden):
+        print(
+            f"    {hidden} duplicate counterexample{'s' if hidden > 1 else ''} not shown "
+            "(same values as a counterexample above)"
+        )
 
     if exitcode in (Exitcode.TIMEOUT.value, Exitcode.EXCEPTION.value):
         # print query directory information
