@@ -80,7 +80,7 @@ jobs:
 
     steps:
       - name: Checkout dolmos
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # we won't be needing tests/lib for this workflow
           submodules: false
@@ -115,7 +115,7 @@ jobs:
           docker commit tmp-dolmos-image dolmos-image
 
       - name: Checkout external repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: ${{ matrix.project.repo }}
           path: ${{ matrix.project.dir }}

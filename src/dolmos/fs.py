@@ -91,11 +91,13 @@ def find_permission(
 ) -> FsPermission | None:
     """The most specific permission covering abs_path, if any."""
 
+    # paths are case-insensitive on Windows (normcase is the identity elsewhere)
+    target = os.path.normcase(abs_path)
     best = None
     for permission in permissions:
-        base = permission.path
-        covered = abs_path == base or abs_path.startswith(base.rstrip(os.sep) + os.sep)
-        if covered and (best is None or len(base) > len(best.path)):
+        base = os.path.normcase(permission.path)
+        covered = target == base or target.startswith(base.rstrip(os.sep) + os.sep)
+        if covered and (best is None or len(permission.path) > len(best.path)):
             best = permission
     return best
 

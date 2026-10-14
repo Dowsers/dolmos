@@ -17,6 +17,14 @@ from dolmos.fs import (
 ROOT = "/project"
 
 
+def P(path: str) -> str:
+    """
+    The absolute, normalized form of a POSIX-style test path on the current OS
+    (on Windows, '/project/a' is D:\\project\\a, as returned by resolve_path).
+    """
+    return os.path.normpath(os.path.abspath(path))
+
+
 def perms(*entries) -> tuple[FsPermission, ...]:
     return parse_fs_permissions(ROOT, [{"access": a, "path": p} for a, p in entries])
 
@@ -25,42 +33,50 @@ def test_parse_fs_permissions_access_aliases():
     # `forge config --json` serializes "read-write" as true and "none" as false
     parsed = perms(("read", "./a"), (True, "b"), (False, "c"), ("write", "/abs/d"))
     assert [(p.access, p.path) for p in parsed] == [
-        ("read", "/project/a"),
-        ("read-write", "/project/b"),
-        ("none", "/project/c"),
-        ("write", "/abs/d"),
+        ("read", P("/project/a")),
+        ("read-write", P("/project/b")),
+        ("none", P("/project/c")),
+        ("write", P("/abs/d")),
     ]
     assert [p.can_read for p in parsed] == [True, True, False, False]
 
 
 def test_resolve_path_is_lexical():
-    assert resolve_path(ROOT, "data/../secret/s.txt") == "/project/secret/s.txt"
-    assert resolve_path(ROOT, "./data/x") == "/project/data/x"
-    assert resolve_path(ROOT, "/elsewhere/x") == "/elsewhere/x"
-    assert resolve_path(ROOT, "../x") == "/x"
+    assert resolve_path(ROOT, "data/../secret/s.txt") == P("/project/secret/s.txt")
+    assert resolve_path(ROOT, "./data/x") == P("/project/data/x")
+    assert resolve_path(ROOT, "/elsewhere/x") == P("/elsewhere/x")
+    assert resolve_path(ROOT, "../x") == P("/x")
 
 
 def test_find_permission_most_specific_wins():
     p = perms(("read", "./data"), ("none", "./data/private"))
-    assert find_permission(p, "/project/data/x.txt").access == "read"
-    assert find_permission(p, "/project/data/private/x.txt").access == "none"
-    assert find_permission(p, "/project/data/private").access == "none"
+    assert find_permission(p, P("/project/data/x.txt")).access == "read"
+    assert find_permission(p, P("/project/data/private/x.txt")).access == "none"
+    assert find_permission(p, P("/project/data/private")).access == "none"
     # order of declaration does not matter
     p = perms(("none", "./data/private"), ("read", "./data"))
-    assert find_permission(p, "/project/data/private/x.txt").access == "none"
+    assert find_permission(p, P("/project/data/private/x.txt")).access == "none"
 
 
 def test_find_permission_matches_path_components_only():
     p = perms(("read", "./data"))
-    assert find_permission(p, "/project/database.txt") is None
-    assert find_permission(p, "/project/data-other/x") is None
-    assert find_permission(p, "/project/data") is not None
+    assert find_permission(p, P("/project/database.txt")) is None
+    assert find_permission(p, P("/project/data-other/x")) is None
+    assert find_permission(p, P("/project/data")) is not None
 
 
 def test_find_permission_root():
     p = perms(("read", "./"))
-    assert find_permission(p, "/project/anything/at/all").access == "read"
-    assert find_permission(p, "/outside") is None
+    assert find_permission(p, P("/project/anything/at/all")).access == "read"
+    assert find_permission(p, P("/outside")) is None
+
+
+@pytest.mark.skipif(
+    os.name != "nt", reason="paths are case-insensitive on Windows only"
+)
+def test_find_permission_case_insensitive_on_windows():
+    p = perms(("read", "./Data"))
+    assert find_permission(p, P("/PROJECT/data/x.txt")).access == "read"
 
 
 @pytest.mark.parametrize(
@@ -82,8 +98,8 @@ def test_ensure_readable_denied(path):
 
 def test_ensure_readable_allowed():
     p = perms(("read", "./data"), ("read-write", "/shared"), ("write", "./logs"))
-    assert ensure_readable(ROOT, "data/x", "vm.readFile", p) == "/project/data/x"
-    assert ensure_readable(ROOT, "/shared/y", "vm.readFile", p) == "/shared/y"
+    assert ensure_readable(ROOT, "data/x", "vm.readFile", p) == P("/project/data/x")
+    assert ensure_readable(ROOT, "/shared/y", "vm.readFile", p) == P("/shared/y")
     with pytest.raises(DolmosException):
         ensure_readable(ROOT, "logs/z", "vm.readFile", p)
 

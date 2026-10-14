@@ -34,7 +34,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           # note: it is faster to let foundry do a sparse checkout of the missing libraries rather than having the action do a git checkout of the submodules
           submodules: false
@@ -46,7 +46,7 @@ jobs:
         run: forge --version
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v4
+        uses: astral-sh/setup-uv@v7
         with:
           # Install a specific version of uv.
           version: "0.5.21"
