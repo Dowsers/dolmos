@@ -808,7 +808,13 @@ def svm_cheatcode(label: str, typ: str, size_bits: int) -> str:
     quoted = json.dumps(label)
     match typ:
         case (
-            "uint256" | "int256" | "address" | "bool" | "bytes32" | "bytes4" | "bytes8"
+            "uint256"
+            | "int256"
+            | "address"
+            | "bool"
+            | "bytes32"
+            | "bytes4"
+            | "bytes8"
         ):
             name = {"uint256": "Uint256", "int256": "Int256", "address": "Address"}.get(
                 typ, typ.capitalize()

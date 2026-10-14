@@ -895,7 +895,9 @@ def run_pretty_cex_test(capsys, *args):
 
 
 def test_pretty_counterexamples_end_to_end(capsys):
-    results, out = run_pretty_cex_test(capsys, "-pcex")
+    # the state variables of the test (`token` below) are read through the solidity storage
+    # layout: pin it, as the CI matrix also runs with --storage-layout generic
+    results, out = run_pretty_cex_test(capsys, "-pcex", "--storage-layout", "solidity")
 
     # the verdicts and counts are the same as without the option
     assert {r.name: (r.exitcode, r.num_models) for r in results} == {
@@ -926,6 +928,22 @@ def test_pretty_counterexamples_end_to_end(capsys):
     assert "        [1] PcexToken(token).transfer(to: 0x" in out
     assert "        token.transfer(0x" in out
     assert "        this.invariant_pcex_balance();" in out
+
+
+def test_pretty_counterexamples_generic_storage_layout(capsys):
+    # without the solidity storage layout, the state variable holding the target is unknown:
+    # the call sequence falls back to the raw address, with a note in the reproduction
+    results, out = run_pretty_cex_test(
+        capsys,
+        "-pcex",
+        "--storage-layout",
+        "generic",
+        "--match-test",
+        "^invariant_pcex_balance",
+    )
+    assert [(r.exitcode, r.num_models) for r in results] == [(1, 1)]
+    assert "        [1] PcexToken@0x" in out
+    assert "is the address of PcexToken in dolmos" in out
 
 
 def test_early_exit_does_not_report_cancelled_queries(capsys, caplog):
