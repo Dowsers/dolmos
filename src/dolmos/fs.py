@@ -72,7 +72,15 @@ def load_fs_permissions(root: str) -> tuple[FsPermission, ...]:
 
     cmd = ["forge", "config", "--json", "--root", root]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        # forge writes utf-8 (warnings may contain non-ascii): do not decode with the
+        # locale encoding, which is not utf-8 on Windows
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            check=True,
+        )
         raw = json.loads(result.stdout).get("fs_permissions") or []
     except (OSError, subprocess.CalledProcessError, ValueError) as e:
         warn(

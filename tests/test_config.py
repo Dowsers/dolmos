@@ -13,6 +13,7 @@ from dolmos.config import (
     arg_parser,
     default_config,
     resolve_config_files,
+    split_command,
 )
 from dolmos.config import (
     toml_parser as get_toml_parser,
@@ -445,3 +446,30 @@ def test_command_line_precedence_over_annotations(config):
         "cvc5",
         ConfigSource.command_line,
     )
+
+
+@pytest.mark.parametrize(
+    "command, windows, expected",
+    [
+        (
+            "path/to/bitwuzla --produce-models",
+            False,
+            ["path/to/bitwuzla", "--produce-models"],
+        ),
+        ("'/opt/my solver/z3' -in", False, ["/opt/my solver/z3", "-in"]),
+        (r"a\ b -x", False, ["a b", "-x"]),
+        (
+            r"D:\a\dolmos\.venv\Scripts\yices-smt2.exe --smt2-model-format",
+            True,
+            [r"D:\a\dolmos\.venv\Scripts\yices-smt2.exe", "--smt2-model-format"],
+        ),
+        (
+            r'"C:\Program Files\z3\z3.exe" -in',
+            True,
+            [r"C:\Program Files\z3\z3.exe", "-in"],
+        ),
+        (r"'D:\x\y.exe' --z", True, [r"D:\x\y.exe", "--z"]),
+    ],
+)
+def test_split_command(command, windows, expected):
+    assert split_command(command, windows=windows) == expected

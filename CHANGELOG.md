@@ -72,6 +72,11 @@ All notable changes to dolmos are documented here. The format follows
   the preimages chosen by the model are added to the query, which is solved again, up to
   `--keccak-refinement-rounds` times (default 3, 0 disables the check); a counterexample
   that still disagrees is reported as potentially invalid (halmos#562)
+- on Windows, `--solver-command` with a path such as `C:\solvers\z3.exe` is no
+  longer mangled (backslashes were parsed as shell escapes); quotes still group words
+- on Windows, `vm.readFile` no longer falls back to foundry's default `fs_permissions`
+  when `forge config` writes non-ascii output, and `fs_permissions` paths are matched
+  case-insensitively, as by foundry
 
 ## [0.1.0] - 2026-09-22
 

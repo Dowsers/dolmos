@@ -2,6 +2,7 @@
 
 import json
 import os
+import shlex
 import shutil
 import sys
 from dataclasses import replace
@@ -819,7 +820,7 @@ def solve_exp_query(tmp_path, assertions: str, apps: ExpApps):
 
     args = default_config().with_overrides(
         source=ConfigSource.command_line,
-        solver_command=" ".join(command),
+        solver_command=shlex.join(command),
         pretty_counterexamples=True,
     )
     ctx = PathContext(

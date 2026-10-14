@@ -69,5 +69,8 @@ jobs:
       - name: Run pytest
         shell: bash
         run: |
-          uv run pytest -v -k "not long and not ffi" --ignore=tests/lib \
+          # failed tests are reported as annotations on the run page (readable without
+          # signing in), and summarized at the end of the log (-rfE)
+          uv run --with pytest-github-actions-annotate-failures \
+            pytest -v -rfE -k "not long and not ffi" --ignore=tests/lib \
             --dolmos-options="-st --disable-gc --solver-threads 1 ${{ inputs.dolmos-options }}" ${{ inputs.pytest-options }}

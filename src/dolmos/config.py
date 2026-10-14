@@ -88,6 +88,21 @@ def arg(
     )
 
 
+def split_command(command: str, windows: bool = os.name == "nt") -> list[str]:
+    """
+    Split a command line into its arguments, like a POSIX shell.
+
+    On Windows, backslashes are path separators rather than escape characters
+    (`C:\\solvers\\yices-smt2.exe` must stay intact); quotes still group words.
+    """
+    if not windows:
+        return shlex.split(command)
+    lexer = shlex.shlex(command, posix=True)
+    lexer.whitespace_split = True
+    lexer.escape = ""
+    return list(lexer)
+
+
 def ensure_non_empty(values: list | set | dict) -> list:
     if not values:
         raise ValueError("required a non-empty list")
@@ -804,7 +819,7 @@ class Config:
                     f"--solver-command will be used and --solver will be ignored",
                     allow_duplicate=False,
                 )
-            return shlex.split(solver_command)
+            return split_command(solver_command)
 
         # if no `--solver-command` is provided, or `--solver` has higher precedence,
         # we need to resolve `--solver <name>` to an actual command
