@@ -105,12 +105,20 @@ jobs:
 
       # for sys-asm-halmos
       - name: Install Geas
+        if: ${{ matrix.project.dir == 'sys-asm-halmos' }}
         run: |
+          # proxy.golang.org occasionally resets HTTP/2 streams mid-download:
+          # force HTTP/1.1, fall back to direct git fetch on any proxy error, retry
           docker run --name tmp-dolmos-image dolmos-image bash -c "\
+            set -e; \
             apt-get update && \
-            apt-get install -y golang-go && \
+            apt-get install -y --no-install-recommends golang-go ca-certificates git && \
             go version && \
-            env 'GOBIN=/dolmos/bin' go install github.com/fjl/geas/cmd/geas@latest && \
+            export GOBIN=/dolmos/bin GOPROXY='https://proxy.golang.org|direct' GODEBUG=http2client=0; \
+            for i in 1 2 3; do \
+              go install github.com/fjl/geas/cmd/geas@v0.3.3 && break; \
+              [ \$i -lt 3 ] || exit 1; echo \"retry \$i...\"; sleep 10; \
+            done; \
             geas -h"
           docker commit tmp-dolmos-image dolmos-image
 
