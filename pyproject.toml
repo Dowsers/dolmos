@@ -64,6 +64,7 @@ dolmos = "dolmos.__main__:main"
 dev = [
     "pre-commit>=4.0.1",
     "pytest>=8.3.4",
+    "pytest-github-actions-annotate-failures>=0.3.0",
     "ruff>=0.8.1",
 ]
 

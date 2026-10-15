@@ -70,7 +70,9 @@ jobs:
         shell: bash
         run: |
           # failed tests are reported as annotations on the run page (readable without
-          # signing in), and summarized at the end of the log (-rfE)
-          uv run --with pytest-github-actions-annotate-failures \
-            pytest -v -rfE -k "not long and not ffi" --ignore=tests/lib \
+          # signing in, pytest-github-actions-annotate-failures in the dev extras), and
+          # summarized at the end of the log (-rfE).
+          # no `uv run --with`: it runs pytest in an overlay environment, where dolmos
+          # does not find z3.exe (installed in .venv\bin, not on PATH, on Windows)
+          uv run pytest -v -rfE -k "not long and not ffi" --ignore=tests/lib \
             --dolmos-options="-st --disable-gc --solver-threads 1 ${{ inputs.dolmos-options }}" ${{ inputs.pytest-options }}
