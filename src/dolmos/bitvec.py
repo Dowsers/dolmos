@@ -722,6 +722,8 @@ class DolmosBitVec:
 
         return DolmosBitVec(exp_abstraction(lhs, rhs), size=size)
 
+
+	# TODO : explain modelisation in specification
     def addmod(
         self,
         other: "DolmosBitVec",
@@ -734,6 +736,9 @@ class DolmosBitVec:
         assert size == modulus.size
 
         if self.is_concrete and other.is_concrete and modulus.is_concrete:
+			# Zero case
+			if modulus.value == 0:
++                return DolmosBitVec(0, size=size)
             return DolmosBitVec((self.value + other.value) % modulus.value, size=size)
 
         # to avoid add overflow; and to be a multiple of 8-bit
@@ -761,7 +766,10 @@ class DolmosBitVec:
         assert size == other.size
         assert size == modulus.size
 
+
         if self.is_concrete and other.is_concrete and modulus.is_concrete:
+			if modulus.value == 0:
++                return DolmosBitVec(0, size=size)
             return DolmosBitVec((self.value * other.value) % modulus.value, size=size)
 
         # to avoid mul overflow
