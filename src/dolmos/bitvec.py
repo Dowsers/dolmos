@@ -738,7 +738,7 @@ class DolmosBitVec:
         if self.is_concrete and other.is_concrete and modulus.is_concrete:
 			# Zero case
 			if modulus.value == 0:
-+                return DolmosBitVec(0, size=size)
+			    return DolmosBitVec(0, size=size)
             return DolmosBitVec((self.value + other.value) % modulus.value, size=size)
 
         # to avoid add overflow; and to be a multiple of 8-bit
@@ -769,7 +769,7 @@ class DolmosBitVec:
 
         if self.is_concrete and other.is_concrete and modulus.is_concrete:
 			if modulus.value == 0:
-+                return DolmosBitVec(0, size=size)
+			    return DolmosBitVec(0, size=size)
             return DolmosBitVec((self.value * other.value) % modulus.value, size=size)
 
         # to avoid mul overflow
