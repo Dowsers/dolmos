@@ -762,17 +762,34 @@ class State:
             raise OutOfGasError(f"memory {loc=} > MAX_MEMORY_SIZE")
         return loc
 
+    def expand_memory(self, loc: int, size: int) -> None:
+        """
+        Expands the active memory to cover [loc, loc + size), zero-filled.
+
+        In the EVM, every instruction that accesses memory (reads included: MLOAD,
+        KECCAK256, LOG, MCOPY, the input and output regions of CALL, ...) expands the
+        active memory reported by MSIZE, even if the bytes are never written.
+        An access of size 0 doesn't expand the memory, whatever its offset.
+        """
+
+        if not size:
+            return
+
+        stop = loc + size
+        if stop > MAX_MEMORY_SIZE:
+            raise OutOfGasError(f"memory access {loc=} {size=} > MAX_MEMORY_SIZE")
+
+        if (length := len(self.memory)) < stop:
+            self.memory.append(b"\x00" * (stop - length))
+
     def mslice(self, loc: int, size: int) -> ByteVec:
-        """Wraps a memory slice read with a size check."""
+        """Wraps a memory slice read with a size check and memory expansion."""
 
         if not size:
             return ByteVec()
 
-        stop = loc + size
-        if stop > MAX_MEMORY_SIZE:
-            raise OutOfGasError(f"memory read {loc=} {size=} > MAX_MEMORY_SIZE")
-
-        return self.memory.slice(start=loc, stop=stop)
+        self.expand_memory(loc, size)
+        return self.memory.slice(start=loc, stop=loc + size)
 
     def set_mslice(self, loc: int, data: ByteVec) -> None:
         """Wraps a memory slice write with a size check."""
@@ -2736,6 +2753,10 @@ class SEVM:
         pranked_caller, pranked_origin = ex.resolve_prank(to)
         arg = ex.st.mslice(arg_loc, arg_size)
 
+        # the output region is expanded before the call, whatever the size of the
+        # return data, as in the EVM (copy_returndata_to_memory only writes what's returned)
+        ex.st.expand_memory(ret_loc, ret_size)
+
         # vm.expectRevert / vm.expectEmit apply to the next non-cheatcode call
         expected = None if to in CHEATCODE_ADDRESSES else ex.context.expectations.take()
 
@@ -3324,10 +3345,24 @@ class SEVM:
         new_ex_true = None
         new_ex_false = None
 
-        if follow_true:
-            if target not in ex.pgm.valid_jumpdests():
-                raise InvalidJumpDestError(f"Invalid jump destination: 0x{target:X}")
+        if follow_true and target not in ex.pgm.valid_jumpdests():
+            # the jump is an exceptional halt, but only when it is taken: the
+            # fall-through is still a feasible path, and dropping it could hide a
+            # failure (and report a test as passing)
+            if follow_false:
+                new_ex_false = self.create_branch(ex, cond_false, ex.insn.next_pc)
+                if is_symbolic_cond:
+                    new_ex_false.jumpis[jid] = {
+                        True: visited[True],
+                        False: visited[False] + 1,
+                    }
+                stack.push(new_ex_false)
 
+            # the current path takes the jump, and halts
+            ex.path.append(cond_true, branching=True)
+            raise InvalidJumpDestError(f"Invalid jump destination: 0x{target:X}")
+
+        if follow_true:
             if follow_false:
                 new_ex_true = self.create_branch(ex, cond_true, target)
             else:
@@ -3988,6 +4023,7 @@ class SEVM:
 
                 elif opcode == OP_MLOAD:
                     loc: int = ex.mloc(check_size=True)
+                    state.expand_memory(loc, 32)
                     state.push_any(state.memory.get_word(loc))
 
                 elif opcode == OP_PUSH0:
@@ -4062,7 +4098,9 @@ class SEVM:
                     state.set_top(w1.bitwise_xor(state.topi()))
 
                 elif opcode == OP_NOT:
-                    state.set_top(state.top().bitwise_not())
+                    # bitwise complement of the 256-bit word: a comparison result (a Bool
+                    # on the stack) is the word 0 or 1, so it must not be negated logically
+                    state.set_top(state.topi().bitwise_not())
 
                 elif OP_MUL <= opcode <= OP_SMOD:  # MUL SUB DIV SDIV MOD SMOD
                     w1 = state.popi()
@@ -4169,11 +4207,13 @@ class SEVM:
                     offset = ex.int_of(state.pop(), "symbolic RETURNDATACOPY offset")
                     size: int = ex.int_of(state.pop(), "symbolic RETURNDATACOPY size")
 
-                    if size:
-                        # no need to check for a huge size because reading out of bounds reverts
-                        if offset + size > ex.returndatasize():
-                            raise OutOfBoundsRead("RETURNDATACOPY out of bounds")
+                    # the bounds are checked even when nothing is copied (EIP-211):
+                    # offset + size > RETURNDATASIZE is an exceptional halt, also for size 0
+                    # no need to check for a huge size because reading out of bounds reverts
+                    if offset + size > ex.returndatasize():
+                        raise OutOfBoundsRead("RETURNDATACOPY out of bounds")
 
+                    if size:
                         data: ByteVec = ex.returndata().slice(offset, offset + size)
                         state.set_mslice(loc, data)
 

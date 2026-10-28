@@ -1026,6 +1026,80 @@
                 "num_bounded_loops": null
             }
         ],
+        "test/EvmSemantics.t.sol:EvmSemanticsTest": [
+            {
+                "name": "check_jumpi_invalid_target(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_msize_after_call_output()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_msize_after_keccak256()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_msize_after_mload()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_not_of_eq(uint256,uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_not_of_iszero(uint256)",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_returndatacopy_zero_size_in_bounds()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            },
+            {
+                "name": "check_returndatacopy_zero_size_out_of_bounds()",
+                "exitcode": 0,
+                "num_models": 0,
+                "models": null,
+                "num_paths": null,
+                "time": null,
+                "num_bounded_loops": null
+            }
+        ],
         "test/EvmVersion.t.sol:EvmVersionDefaultTest": [
             {
                 "name": "check_all_available()",
@@ -3185,7 +3259,7 @@
                 "num_bounded_loops": null
             },
             {
-                "name": "check_megaMem_call_out_len_ok()",
+                "name": "check_megaMem_call_out_len_reverts()",
                 "exitcode": 0,
                 "num_models": 0,
                 "models": null,

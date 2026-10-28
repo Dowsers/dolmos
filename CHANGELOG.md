@@ -7,6 +7,24 @@ All notable changes to dolmos are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `NOT` applied to the result of a comparison (`EQ`, `LT`, `ISZERO`, ...) complements
+  the 256-bit word, instead of negating it logically: `not(eq(1, 1))` is
+  `2**256 - 2`, not `0` (halmos#593)
+- `JUMPI` to an invalid destination with a symbolic condition halts only the path
+  where the jump is taken; the fall-through path was dropped, which could hide a
+  failure and report a test as passing (halmos#594)
+- `ADDMOD` and `MULMOD` with a concrete zero modulus return 0 instead of crashing
+  with `ZeroDivisionError` (halmos#595)
+- `RETURNDATACOPY` checks `offset + size <= RETURNDATASIZE` even when `size` is 0,
+  and halts exceptionally otherwise, as in the EVM (halmos#596)
+- every memory access expands the active memory reported by `MSIZE`, reads
+  included: `MLOAD`, `KECCAK256`, `LOG*`, the source of `MCOPY`, the input of
+  `CREATE*` and `*CALL`, and the output region of `*CALL` whatever the size of the
+  return data. A call with a huge output size therefore runs out of gas, as in the
+  EVM, instead of succeeding (halmos#597)
+
 ## [0.2.0] - 2026-10-16
 
 ### Added

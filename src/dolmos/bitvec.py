@@ -722,7 +722,6 @@ class DolmosBitVec:
 
         return DolmosBitVec(exp_abstraction(lhs, rhs), size=size)
 
-
     # TODO : explain modelisation in specification
     def addmod(
         self,
@@ -765,7 +764,6 @@ class DolmosBitVec:
         size = self._size
         assert size == other.size
         assert size == modulus.size
-
 
         if self.is_concrete and other.is_concrete and modulus.is_concrete:
             if modulus.value == 0:
